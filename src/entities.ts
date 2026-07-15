@@ -99,9 +99,11 @@ export const DARK_ORB = {
 // branch in main.ts's orb-update loop.
 export interface OrbTypeDef {
   id: string;
+  name: string; // shown in the in-game Library
+  description: string;
   color: Color3; // Babylon material emissive
   cssColor: string; // same color, for DOM effects (hit-burst, split-burst)
-  behavior: "drift" | "wobble" | "split";
+  behavior: "drift" | "wobble" | "split" | "track";
   wobbleAmplitude?: number; // px lateral offset (wobble only)
   wobbleFrequency?: number; // radians per px traveled (wobble only)
   splitAfterMs?: number; // time alive before splitting (split only)
@@ -110,12 +112,16 @@ export interface OrbTypeDef {
 export const ORB_TYPES: OrbTypeDef[] = [
   {
     id: "drifter",
+    name: "Kẻ Trôi Dạt",
+    description: "Lao thẳng một đường theo hướng bạn đứng lúc nó xuất hiện — dễ đoán nếu bạn né sớm.",
     color: new Color3(0.5, 0.05, 0.15),
     cssColor: "#a30d26",
     behavior: "drift", // straight line toward the player's position at spawn time
   },
   {
     id: "wobbler",
+    name: "Kẻ Lượn Sóng",
+    description: "Vừa tiến vừa lượn sang hai bên theo hình sin — khó đoán quỹ đạo hơn Kẻ Trôi Dạt.",
     color: new Color3(0.55, 0.15, 0.5),
     cssColor: "#8c2680",
     behavior: "wobble", // weaves side to side while advancing — harder to predict
@@ -124,10 +130,20 @@ export const ORB_TYPES: OrbTypeDef[] = [
   },
   {
     id: "splitter",
+    name: "Kẻ Phân Rã",
+    description: "Bay thẳng, sau khoảng 0.9s tách làm 2 mảnh nhỏ hơn bay chéo ra hai bên.",
     color: new Color3(0.18, 0.1, 0.55),
     cssColor: "#2e1a8c",
     behavior: "split", // travels straight, then splits into 2 shards after a delay
     splitAfterMs: 900,
+  },
+  {
+    id: "tracker",
+    name: "Kẻ Săn Đuổi",
+    description: "Liên tục đổi hướng bám theo vị trí hiện tại của bạn — không thể né bằng cách đứng yên hay đi vòng.",
+    color: new Color3(0.05, 0.4, 0.45),
+    cssColor: "#0d7a8c",
+    behavior: "track", // re-aims toward the player's *current* position every frame
   },
 ];
 
@@ -159,7 +175,17 @@ export const WAVE = {
 //   effect — a genuinely new Dash mechanic layered on top of whatever the
 //            character's core dashEffect already does (see tryDash() in main.ts)
 export interface UpgradeDef {
-  id: "heal" | "max_hp" | "dash_cooldown" | "dash_distance" | "dash_power" | "move_speed" | "dash_chain" | "dash_magnet" | "dash_shockburst";
+  id:
+    | "heal"
+    | "max_hp"
+    | "dash_cooldown"
+    | "dash_distance"
+    | "dash_power"
+    | "move_speed"
+    | "dash_chain"
+    | "dash_magnet"
+    | "dash_shockburst"
+    | "retaliate";
   name: string;
   description: string;
   category: "stat" | "effect";
@@ -175,4 +201,5 @@ export const UPGRADES: UpgradeDef[] = [
   { id: "dash_chain", name: "Dash Nối Tiếp", description: "Dash phá được ít nhất 1 quái sẽ được hoàn lại một phần thời gian hồi chiêu.", category: "effect" },
   { id: "dash_magnet", name: "Từ Trường", description: "Dash hút các điểm sáng (power-up) gần đó lại phía bạn.", category: "effect" },
   { id: "dash_shockburst", name: "Dư Chấn", description: "Mọi cú Dash đều gây thêm một vụ nổ nhỏ quanh điểm đáp, phá quái xung quanh — kể cả với Vanguard/Phantom.", category: "effect" },
+  { id: "retaliate", name: "Trả Đòn", description: "Khi bạn bị trúng đòn, mọi quái vật gần đó lập tức bị phá hủy theo — biến cú trúng đòn thành một đợt dọn quái.", category: "effect" },
 ];

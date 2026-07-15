@@ -34,6 +34,11 @@ const characterInfoEl = document.getElementById("characterInfo")!;
 const upgradePickEl = document.getElementById("upgradePick")!;
 const upgradeCardsEl = document.getElementById("upgradeCards")!;
 const upgradeLogEl = document.getElementById("upgradeLog")!;
+const libraryBtn = document.getElementById("libraryBtn")!;
+const libraryEl = document.getElementById("library")!;
+const libraryCloseBtn = document.getElementById("libraryCloseBtn")!;
+const orbLibraryEl = document.getElementById("orbLibrary")!;
+const upgradeLibraryEl = document.getElementById("upgradeLibrary")!;
 
 // Orbs and power-ups stay Babylon meshes (they already read as flat 2D circles
 // head-on through the orthographic camera). The player is a plain CSS element —
@@ -118,6 +123,38 @@ for (const char of CHARACTERS) {
 characterButtons[0]?.classList.add("selected");
 applyCharacterVisual(selectedCharacter);
 
+// --- library (bestiary + upgrade reference) ----------------------------------
+function libraryItem(color: string, name: string, description: string, tag?: string) {
+  const item = document.createElement("div");
+  item.className = "library-item";
+  item.innerHTML = `
+    <span class="swatch" style="--item-color: ${color}"></span>
+    <span class="library-text">
+      ${tag ? `<span class="library-tag">${tag}</span>` : ""}
+      <span class="library-name">${name}</span>
+      <span class="library-desc">${description}</span>
+    </span>`;
+  return item;
+}
+
+for (const orbType of ORB_TYPES) {
+  orbLibraryEl.appendChild(libraryItem(orbType.cssColor, orbType.name, orbType.description));
+}
+for (const upg of UPGRADES) {
+  upgradeLibraryEl.appendChild(
+    libraryItem(upg.category === "effect" ? "#6cf0ff" : "#9fb8c8", upg.name, upg.description, upg.category === "effect" ? "Hiệu ứng" : "Chỉ số")
+  );
+}
+
+libraryBtn.addEventListener("pointerdown", (e) => {
+  e.stopPropagation();
+  libraryEl.classList.remove("hidden");
+});
+libraryCloseBtn.addEventListener("pointerdown", (e) => {
+  e.stopPropagation();
+  libraryEl.classList.add("hidden");
+});
+
 let playerPos = { x: 0, y: 0 };
 let facing = { x: 0, y: 1 };
 
@@ -148,6 +185,7 @@ interface RunStats {
   dashChainLevel: number; // 0 = not picked yet
   dashMagnetLevel: number;
   dashShockburstLevel: number;
+  retaliateLevel: number;
 }
 function freshRunStats(): RunStats {
   return {
@@ -159,6 +197,7 @@ function freshRunStats(): RunStats {
     dashChainLevel: 0,
     dashMagnetLevel: 0,
     dashShockburstLevel: 0,
+    retaliateLevel: 0,
   };
 }
 let runStats: RunStats = freshRunStats();
@@ -192,6 +231,17 @@ function takeDamage() {
   invulnerableUntil = performance.now() + 900;
   playerEl.classList.add("invulnerable");
   setTimeout(() => playerEl.classList.remove("invulnerable"), 900);
+  if (runStats.retaliateLevel > 0) {
+    // Retaliate: getting hit destroys nearby orbs too, turning a hit into a small clear
+    const radius = selectedCharacter.radius * (1.5 + runStats.retaliateLevel * 1.2);
+    for (let i = orbs.length - 1; i >= 0; i--) {
+      const o = orbs[i];
+      if (Math.hypot(o.mesh.position.x - playerPos.x, o.mesh.position.y - playerPos.y) < radius + o.radius) {
+        destroyOrb(o, i);
+      }
+    }
+    spawnBurst(playerPos.x, playerPos.y, "#ff5566", radius * 2);
+  }
   if (hp <= 0) endGame();
 }
 
@@ -387,7 +437,9 @@ function tryDash() {
 
   // effect upgrades layer on top of whatever the character's core dashEffect does
   if (runStats.dashShockburstLevel > 0) {
-    const bonusRadius = selectedCharacter.radius * runStats.dashShockburstLevel * 0.8;
+    // was radius*level*0.8 — for level 1 that's smaller than the player's own
+    // hitbox, so it practically never reached anything. Needs a real base size.
+    const bonusRadius = selectedCharacter.radius * (1.5 + runStats.dashShockburstLevel * 1.2);
     for (let i = orbs.length - 1; i >= 0; i--) {
       const o = orbs[i];
       if (Math.hypot(o.mesh.position.x - playerPos.x, o.mesh.position.y - playerPos.y) < bonusRadius + o.radius) {
@@ -428,8 +480,11 @@ const keys = new Set<string>();
 window.addEventListener("keydown", (e) => {
   const key = e.key.toLowerCase();
   if (MOVE_KEYS.has(key)) keys.add(key);
-  if (key === "shift") tryDash();
-  if (e.code === "Space" && state !== "playing") startGame();
+  if (e.code === "Space") {
+    e.preventDefault(); // Space also natively scrolls/re-clicks a focused button — suppress that
+    if (state === "playing") tryDash();
+    else startGame();
+  }
 });
 window.addEventListener("keyup", (e) => keys.delete(e.key.toLowerCase()));
 window.addEventListener("pointerdown", () => {
@@ -504,6 +559,9 @@ function applyUpgrade(id: UpgradeDef["id"]) {
       break;
     case "dash_shockburst":
       runStats.dashShockburstLevel += 1;
+      break;
+    case "retaliate":
+      runStats.retaliateLevel += 1;
       break;
   }
   acquiredUpgrades.set(id, (acquiredUpgrades.get(id) ?? 0) + 1);
@@ -677,12 +735,26 @@ scene.onBeforeRenderObservable.add(() => {
     o.traveled += o.speed * dt;
     o.ageMs += dt * 1000;
 
-    let px = o.spawnX + o.dirX * o.traveled;
-    let py = o.spawnY + o.dirY * o.traveled;
-    if (o.type.behavior === "wobble") {
-      const offset = Math.sin(o.traveled * (o.type.wobbleFrequency ?? 0)) * (o.type.wobbleAmplitude ?? 0);
-      px += o.perpX * offset;
-      py += o.perpY * offset;
+    let px: number;
+    let py: number;
+    if (o.type.behavior === "track") {
+      // true homing: re-aims toward the player's *current* spot every frame,
+      // unlike every other type which locks its direction at spawn time
+      const dx = playerPos.x - o.mesh.position.x;
+      const dy = playerPos.y - o.mesh.position.y;
+      const len = Math.hypot(dx, dy) || 1;
+      o.dirX = dx / len;
+      o.dirY = dy / len;
+      px = o.mesh.position.x + o.dirX * o.speed * dt;
+      py = o.mesh.position.y + o.dirY * o.speed * dt;
+    } else {
+      px = o.spawnX + o.dirX * o.traveled;
+      py = o.spawnY + o.dirY * o.traveled;
+      if (o.type.behavior === "wobble") {
+        const offset = Math.sin(o.traveled * (o.type.wobbleFrequency ?? 0)) * (o.type.wobbleAmplitude ?? 0);
+        px += o.perpX * offset;
+        py += o.perpY * offset;
+      }
     }
     o.mesh.position.x = px;
     o.mesh.position.y = py;

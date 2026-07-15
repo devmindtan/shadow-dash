@@ -14,14 +14,14 @@ Built:
 - Player is a CSS `clip-path` shape (`#player` div), not a Babylon mesh — arrow-key/WASD movement only (no mouse), rotates to face its last movement direction
 - 3 selectable characters, each with distinct shape/color/stats: Vanguard (balanced, 3 HP), Phantom (small & fast, short dash cooldown, 2 HP), Titan (big & slow, tanky, 4 HP)
 - Character select is part of the single persistent `#menu` screen shown on both first start and every Game Over — always reachable, no page reload needed to switch characters, with a description of each character's stats/dash effect shown below the picker
-- Dash skill (Shift): instant burst in the facing direction, per-character distance/cooldown, leaves a fading afterimage trail + glow flash; HUD badge shows a live cooldown countdown (`DASH 1.2s`)
+- Dash skill (Space): instant burst in the facing direction, per-character distance/cooldown, leaves a fading afterimage trail + glow flash; HUD badge shows a live cooldown countdown (`DASH 1.2s`). Space does double duty (start/restart when not playing, Dash while playing) — same key, mutually exclusive by game state.
 - **Dash effect is per-character, a real mechanic not just a visual** (`DashEffect` in `entities.ts`): Vanguard = **Pierce** (destroys orbs swept by the dash path), Phantom = **Phase** (no kill, but brief invulnerability — pure evasion), Titan = **Shockwave** (destroys everything in a radius around the landing point)
 - HP system: hitting an orb without a Shield costs 1 HP (not instant death), with a brief invulnerability + flicker after each hit; HUD shows HP as small pips per character's max
-- 3 Dark Orb types, same power level, different mechanics: **Drifter** (straight line at the player's spawn-time position), **Wobbler** (weaves side-to-side while advancing), **Splitter** (travels straight, then splits into 2 shards after ~0.9s, with a burst effect)
+- 4 Dark Orb types, same power level, different mechanics: **Drifter** (straight line at the player's spawn-time position), **Wobbler** (weaves side-to-side while advancing), **Splitter** (travels straight, then splits into 2 shards after ~0.9s), **Tracker** (true homing — continuously re-aims at your *current* position every frame, unlike the other three which lock direction at spawn)
 - Power-ups spawn randomly, grant a 5s Shield (visible ring + HUD badge) that fully absorbs orb hits (no HP cost, with its own burst + sound when it blocks a hit)
 - Wave-clear checkpoints every 20s (`WAVE` in `entities.ts`): a "WAVE N" banner + sound, then the game pauses and offers a roguelite-style pick of 3 random upgrades (`UPGRADES` in `entities.ts`). A felt milestone, not a win/pass gate (Shadow Dash has no win state, score is just survival time). Upgrades scale a per-run `runStats` copy, never the shared character data.
   - **Stat upgrades**: heal, +max HP, faster dash cooldown, longer dash, stronger dash effect, +move speed.
-  - **Effect upgrades — new Dash mechanics, not just bigger numbers**: **Dash Nối Tiếp** (a dash that kills refunds part of the cooldown), **Từ Trường** (dash pulls nearby power-ups toward you), **Dư Chấn** (every dash also triggers a small bonus AoE kill-burst around the landing point, stacking on top of whatever the character's core dash effect already does — so even Vanguard/Phantom get a taste of Titan-style splash).
+  - **Effect upgrades — new mechanics, not just bigger numbers**: **Dash Nối Tiếp** (a dash that kills refunds part of the cooldown), **Từ Trường** (dash pulls nearby power-ups toward you), **Dư Chấn** (every dash also triggers a small bonus AoE kill-burst around the landing point, stacking on top of whatever the character's core dash effect already does — so even Vanguard/Phantom get a taste of Titan-style splash), **Trả Đòn** (getting hit destroys nearby orbs too, turning a hit into a small clear).
   - Picking the same upgrade again stacks it to the next level (tracked per-run, shown as `Lv.N` badges under the HUD and as "(Lv.N+1)" on the offer card).
 - Difficulty is a ramp with a sine wave riding on top (`waveAmplitude`/`wavePeriodSeconds` in `entities.ts`) — intensity breathes (quieter dips, denser bursts) instead of climbing in a flat line
 - Game pauses on tab/window blur (`visibilitychange`) — alt-tabbing away doesn't cost you a run; frame delta is also clamped so a long stall never flings orbs/the player or dumps a huge chunk onto the score
@@ -29,11 +29,13 @@ Built:
 - Procedural sound effects via the native Web Audio API (`src/audio.ts`, oscillator-based blips) — start, dash, hit, shield pickup, orb-kill, game over. No audio asset files.
 - Score HUD, Game Over screen with final score, instant restart (Space or click only — not any key)
 - All visuals are procedural (CSS shapes for the player/shield/dash trail/hit-bursts, Babylon primitives + GlowLayer for orbs/power-ups) — no generated image or audio assets needed
+- **Library** screen ("Thư Viện" button on the menu): a reference/bestiary listing every orb type and every upgrade (with a Stat/Effect tag), built directly from `ORB_TYPES`/`UPGRADES` so it can never drift out of sync with the actual game data
 
 Left / possible next steps:
 - More power-up variety beyond Shield (e.g. Nuke, Magnet, Slow-field)
 - Mobile touch input (currently keyboard only)
 - Unlockable characters/skins gated on score milestones
+- Broader visual/UI redesign — this round only tightened the HUD/Library layout; a fuller "make it prettier" pass (new type treatment, richer motion, etc.) needs more specific direction on what to change
 
 ## Run it
 
@@ -51,7 +53,7 @@ A `.claude/hooks/build-doctor-check.sh` Stop hook (adapted from `~/.claude/templ
 | Asset | Source | Notes |
 |---|---|---|
 | Player, shield ring, dash trail, hit-burst effects | Procedural CSS (`clip-path` + `translate`/`rotate` custom properties) | Flat 2D by construction — no 3D mesh, no generated images |
-| Dark orbs (3 types), power-ups | Procedural Babylon (`MeshBuilder.CreateSphere` + emissive materials + GlowLayer) | Already read as flat circles head-on through the ortho camera |
+| Dark orbs (4 types), power-ups | Procedural Babylon (`MeshBuilder.CreateSphere` + emissive materials + GlowLayer) | Already read as flat circles head-on through the ortho camera |
 | Sound effects | Procedural Web Audio (`src/audio.ts`, `OscillatorNode` + `GainNode` envelopes) | No audio files |
 
 ## Known gotchas (for future edits)
@@ -64,4 +66,7 @@ A `.claude/hooks/build-doctor-check.sh` Stop hook (adapted from `~/.claude/templ
 - `sfx*()` calls in `audio.ts` lazily create/resume the single shared `AudioContext`; every call site is reached from a keydown/pointerdown handler (Space/Shift/click), which satisfies the browser's user-gesture requirement for audio. Don't call an `sfx*()` function from a `setTimeout`/async callback with no gesture in its call stack — create the sound at the point of the input handler instead, and let the effect it's paired with reference it.
 - Dash's gameplay effect is chosen by `selectedCharacter.dashEffect`, branched in `tryDash()` in `main.ts` — add a 4th effect by adding a new `DashEffect` variant in `entities.ts` and a branch there, not by adding a new orthogonal "loadout" UI.
 - The shield ring's on-screen position must be set (`updateShieldRingPosition()`) in the *same* code path that un-hides it — setting visibility one frame and position the next causes a one-frame flash at a stale position. Follow this pattern for any future effect that toggles visibility and position together.
-- Upgrade effects live in `runStats` (`main.ts`), not on `CHARACTERS` — `freshRunStats()` is the one place that resets them at `startGame()`. Add a new upgrade by: adding an entry + id to `UPGRADES` in `entities.ts`, adding the matching field to `RunStats`/`freshRunStats()`, a case in `applyUpgrade()`, and (for effect upgrades) a check in `tryDash()`. `acquiredUpgrades` (a `Map<id, level>`) is separate bookkeeping purely for the "next level" UI — the actual power lives in `runStats`.
+- Upgrade effects live in `runStats` (`main.ts`), not on `CHARACTERS` — `freshRunStats()` is the one place that resets them at `startGame()`. Add a new upgrade by: adding an entry + id to `UPGRADES` in `entities.ts`, adding the matching field to `RunStats`/`freshRunStats()`, a case in `applyUpgrade()`, and (for effect upgrades) a check in `tryDash()` or wherever the effect actually triggers (e.g. `retaliate` hooks into `takeDamage()`, not `tryDash()`). `acquiredUpgrades` (a `Map<id, level>`) is separate bookkeeping purely for the "next level" UI — the actual power lives in `runStats`.
+- Any AoE-style bonus radius (shockwave, Dư Chấn, Trả Đòn) needs a real base size, not just `radius * level * smallFactor` — at level 1 that undersizes below the player's own hitbox and never reaches anything. Use a `radius * (base + level * growth)` shape instead (see `dashShockburstLevel`/`retaliateLevel` in `tryDash()`/`takeDamage()`).
+- `ORB_TYPES`'s `"track"` behavior is fundamentally different from the other three: it recomputes direction toward the player's *live* position every frame and integrates position incrementally, instead of the parametric `spawnX + dir*traveled` closed form the others use. Any future "reactive" orb mechanic (that needs to respond to live game state, not just elapsed time) should follow the same incremental-update branch, not the parametric one.
+- The Library ("Thư Viện") screen is generated straight from `ORB_TYPES` and `UPGRADES` (`libraryItem()` in `main.ts`) — it can't drift out of sync with the data. Adding a name/description to a new orb or upgrade entry is enough; no separate Library content to maintain.
