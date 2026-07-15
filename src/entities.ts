@@ -220,7 +220,7 @@ export const UPGRADES: UpgradeDef[] = [
   {
     id: "dash_chain",
     name: "Dash Nối Tiếp",
-    description: "Dash phá được ít nhất 1 quái sẽ được hoàn lại một phần thời gian hồi chiêu.",
+    description: "Dash phá được quái (hoặc lướt sát quái nếu bạn dùng hiệu ứng né tránh) sẽ được hoàn lại một phần thời gian hồi chiêu.",
     category: "effect",
     maxLevel: 5,
     levelDetails: [

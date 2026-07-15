@@ -331,8 +331,16 @@ body {
   line-height: 1.4;
 }
 
+#menuButtonRow {
+  display: flex;
+  gap: 10px;
+}
+
 #libraryBtn,
-#libraryCloseBtn {
+#libraryCloseBtn,
+#trainingBtn,
+#trainingExitBtn,
+#trainingSpawnRow button {
   background: none;
   border: 1px solid #2a3a42;
   border-radius: 4px;
@@ -344,9 +352,91 @@ body {
 }
 
 #libraryBtn:hover,
-#libraryCloseBtn:hover {
+#libraryCloseBtn:hover,
+#trainingBtn:hover,
+#trainingExitBtn:hover,
+#trainingSpawnRow button:hover {
   border-color: #6cf0ff;
   color: #eaf6ff;
+}
+
+#trainingPanel {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  translate: -50% 0;
+  z-index: 9;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  max-width: 640px;
+  padding: 14px 20px;
+  border: 1px solid #2a3a42;
+  border-radius: 10px;
+  background: rgba(6, 10, 14, 0.9);
+  text-align: center;
+}
+
+#trainingPanel h2 {
+  font-size: 15px;
+  letter-spacing: 2px;
+  color: #6cf0ff;
+}
+
+#trainingRows {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+  width: 100%;
+}
+
+.training-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border: 1px solid #2a3a42;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.training-row .training-name {
+  color: #9fb8c8;
+  text-align: left;
+}
+
+.training-row .training-stepper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.training-row button {
+  background: none;
+  border: 1px solid #2a3a42;
+  border-radius: 4px;
+  color: #6cf0ff;
+  width: 22px;
+  height: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.training-row button:hover {
+  border-color: #6cf0ff;
+}
+
+.training-row .training-level {
+  color: #eaf6ff;
+  min-width: 14px;
+  text-align: center;
+}
+
+#trainingSpawnRow {
+  display: flex;
+  gap: 10px;
 }
 
 /* Library: styled like an open album/handbook — a narrow "cover" spine on the

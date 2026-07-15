@@ -17,6 +17,7 @@
       <span id="health"></span>
       <span id="shield" class="hud-badge hidden">SHIELD</span>
       <span id="dash" class="hud-badge">DASH</span>
+      <span id="trainingBadge" class="hud-badge hidden">LUYỆN TẬP</span>
     </div>
     <div id="upgradeLog"></div>
     <div id="menu">
@@ -25,8 +26,21 @@
       <p id="finalScore" class="hidden"></p>
       <div id="characterSelect"></div>
       <p class="hint" id="characterInfo"></p>
-      <button type="button" id="libraryBtn">Thư Viện</button>
+      <div id="menuButtonRow">
+        <button type="button" id="libraryBtn">Thư Viện</button>
+        <button type="button" id="trainingBtn">Phòng Luyện Tập</button>
+      </div>
       <p class="start-hint" id="startHint">Nhấn Space hoặc bấm chuột để bắt đầu</p>
+    </div>
+    <div id="trainingPanel" class="hidden">
+      <h2>Phòng Luyện Tập</h2>
+      <p class="hint">Không thể chết thật — thoải mái chỉnh cấp độ từng hiệu ứng để thử nghiệm.</p>
+      <div id="trainingRows"></div>
+      <div id="trainingSpawnRow">
+        <button type="button" id="trainingSpawnOrb">+ Quái</button>
+        <button type="button" id="trainingSpawnPower">+ Power-up</button>
+      </div>
+      <button type="button" id="trainingExitBtn">Thoát Luyện Tập</button>
     </div>
     <div id="upgradePick" class="hidden">
       <h1>CHỌN NÂNG CẤP</h1>

@@ -39,6 +39,13 @@ const libraryEl = document.getElementById("library")!;
 const libraryCloseBtn = document.getElementById("libraryCloseBtn")!;
 const orbLibraryEl = document.getElementById("orbLibrary")!;
 const upgradeLibraryEl = document.getElementById("upgradeLibrary")!;
+const trainingBtn = document.getElementById("trainingBtn")!;
+const trainingBadgeEl = document.getElementById("trainingBadge")!;
+const trainingPanelEl = document.getElementById("trainingPanel")!;
+const trainingRowsEl = document.getElementById("trainingRows")!;
+const trainingExitBtn = document.getElementById("trainingExitBtn")!;
+const trainingSpawnOrbBtn = document.getElementById("trainingSpawnOrb")!;
+const trainingSpawnPowerBtn = document.getElementById("trainingSpawnPower")!;
 
 // Orbs and power-ups stay Babylon meshes (they already read as flat 2D circles
 // head-on through the orthographic camera). The player is a plain CSS element —
@@ -314,7 +321,16 @@ function takeDamage() {
       setTimeout(() => playerEl.classList.remove("invulnerable"), 300);
     }
   }
-  if (hp <= 0) endGame();
+  if (hp <= 0) {
+    if (trainingMode) {
+      // Training Room: can't permanently die, so every on-hit effect (Trả
+      // Đòn, Hồi Sinh) can still be exercised for real through normal play
+      hp = runStats.maxHp;
+      renderHealthPips();
+    } else {
+      endGame();
+    }
+  }
 }
 
 // --- orbs / power-ups -------------------------------------------------------
@@ -505,6 +521,16 @@ function tryDash() {
     invulnerableUntil = Math.max(invulnerableUntil, now + phaseDurationMs);
     playerEl.classList.add("invulnerable");
     setTimeout(() => playerEl.classList.remove("invulnerable"), phaseDurationMs);
+    // Phase never destroys anything, but Dash Nối Tiếp needs a trigger that
+    // works for every character — a close call (dashing within near-miss
+    // range of an orb) counts the same as a kill would for pierce/shockwave.
+    const nearMissRadius = (selectedCharacter.radius + DARK_ORB.radius) * 2;
+    for (const o of orbs) {
+      if (distToSegment(o.mesh.position.x, o.mesh.position.y, startX, startY, playerPos.x, playerPos.y) < nearMissRadius) {
+        killedCount++;
+        break;
+      }
+    }
   }
 
   // effect upgrades layer on top of whatever the character's core dashEffect does
@@ -581,6 +607,7 @@ let powerUpNextIn = randRange(POWER_UP.spawnIntervalMinMs, POWER_UP.spawnInterva
 let shieldActive = false;
 let shieldUntil = 0;
 let currentWave = 1;
+let trainingMode = false;
 
 function randRange(min: number, max: number) {
   return min + Math.random() * (max - min);
@@ -683,6 +710,126 @@ function offerUpgrades() {
   upgradePickEl.classList.remove("hidden");
 }
 
+// --- training room (practice mode: can't permanently die, manual level dials) --
+function getEffectLevel(id: UpgradeDef["id"]): number {
+  switch (id) {
+    case "dash_chain":
+      return runStats.dashChainLevel;
+    case "dash_magnet":
+      return runStats.dashMagnetLevel;
+    case "dash_shockburst":
+      return runStats.dashShockburstLevel;
+    case "retaliate":
+      return runStats.retaliateLevel;
+    case "aura":
+      return runStats.auraLevel;
+    case "second_wind":
+      return runStats.secondWindCharges;
+    default:
+      return 0;
+  }
+}
+
+function setEffectLevel(id: UpgradeDef["id"], level: number) {
+  const clamped = Math.max(0, Math.min(MAX_EFFECT_LEVEL, level));
+  switch (id) {
+    case "dash_chain":
+      runStats.dashChainLevel = clamped;
+      break;
+    case "dash_magnet":
+      runStats.dashMagnetLevel = clamped;
+      break;
+    case "dash_shockburst":
+      runStats.dashShockburstLevel = clamped;
+      break;
+    case "retaliate":
+      runStats.retaliateLevel = clamped;
+      break;
+    case "aura":
+      runStats.auraLevel = clamped;
+      break;
+    case "second_wind":
+      runStats.secondWindCharges = clamped;
+      break;
+    default:
+      return;
+  }
+  if (clamped > 0) acquiredUpgrades.set(id, clamped);
+  else acquiredUpgrades.delete(id);
+  renderUpgradeLog();
+}
+
+function trainingRow(upg: UpgradeDef) {
+  const row = document.createElement("div");
+  row.className = "training-row";
+  row.innerHTML = `
+    <span class="training-name">${upg.name}</span>
+    <span class="training-stepper">
+      <button type="button" class="training-minus">−</button>
+      <span class="training-level">0</span>
+      <button type="button" class="training-plus">+</button>
+    </span>`;
+  const levelEl = row.querySelector(".training-level")!;
+  const refresh = () => {
+    levelEl.textContent = String(getEffectLevel(upg.id));
+  };
+  row.querySelector(".training-minus")!.addEventListener("pointerdown", (e) => {
+    e.stopPropagation();
+    setEffectLevel(upg.id, getEffectLevel(upg.id) - 1);
+    refresh();
+  });
+  row.querySelector(".training-plus")!.addEventListener("pointerdown", (e) => {
+    e.stopPropagation();
+    setEffectLevel(upg.id, getEffectLevel(upg.id) + 1);
+    refresh();
+  });
+  return row;
+}
+
+for (const upg of UPGRADES) {
+  if (upg.category === "effect") trainingRowsEl.appendChild(trainingRow(upg));
+}
+
+function startTraining() {
+  trainingMode = true;
+  startGame();
+  trainingPanelEl.classList.remove("hidden");
+  trainingBadgeEl.classList.remove("hidden");
+  for (const row of Array.from(trainingRowsEl.children)) {
+    row.querySelector(".training-level")!.textContent = "0";
+  }
+}
+
+function exitTraining() {
+  trainingMode = false;
+  state = "start";
+  clearEntities();
+  trainingPanelEl.classList.add("hidden");
+  trainingBadgeEl.classList.add("hidden");
+  menuTitleEl.textContent = "SHADOW DASH";
+  menuHintEl.classList.remove("hidden");
+  finalScoreEl.classList.add("hidden");
+  startHintEl.textContent = "Nhấn Space hoặc bấm chuột để bắt đầu";
+  menuEl.classList.remove("hidden");
+}
+
+trainingBtn.addEventListener("pointerdown", (e) => {
+  e.stopPropagation();
+  startTraining();
+});
+trainingExitBtn.addEventListener("pointerdown", (e) => {
+  e.stopPropagation();
+  exitTraining();
+});
+trainingSpawnOrbBtn.addEventListener("pointerdown", (e) => {
+  e.stopPropagation();
+  spawnOrb(DARK_ORB.speedStart);
+});
+trainingSpawnPowerBtn.addEventListener("pointerdown", (e) => {
+  e.stopPropagation();
+  spawnPowerUp();
+});
+
 function startGame() {
   clearEntities();
   playerPos = { x: 0, y: 0 };
@@ -746,9 +893,10 @@ scene.onBeforeRenderObservable.add(() => {
   scoreEl.textContent = elapsed.toFixed(1);
 
   // wave-clear checkpoint — a felt milestone (banner/sound + a roguelite-style
-  // upgrade pick), Shadow Dash has no win state, this doesn't gate progress
+  // upgrade pick), Shadow Dash has no win state, this doesn't gate progress.
+  // Skipped in the Training Room — levels are set manually there instead.
   const wave = Math.floor(elapsed / WAVE.intervalSeconds) + 1;
-  if (wave > currentWave) {
+  if (wave > currentWave && !trainingMode) {
     currentWave = wave;
     showWaveBanner(currentWave);
     sfxWave();
