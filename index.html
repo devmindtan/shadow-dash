@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Shadow Dash</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <canvas id="renderCanvas"></canvas>
+    <div id="hud">
+      <span id="score">0.0</span>
+      <span id="shield" class="hidden">SHIELD</span>
+    </div>
+    <div id="overlay">
+      <h1>SHADOW DASH</h1>
+      <p class="hint">Di chuyển bằng chuột hoặc phím mũi tên. Né các quả cầu bóng tối, thu thập điểm sáng để có khiên bảo vệ.</p>
+      <p class="start-hint">Nhấn phím bất kỳ hoặc bấm chuột để bắt đầu</p>
+    </div>
+    <div id="gameover" class="hidden">
+      <h1>GAME OVER</h1>
+      <p id="finalScore"></p>
+      <p class="start-hint">Nhấn phím bất kỳ hoặc bấm chuột để chơi lại</p>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

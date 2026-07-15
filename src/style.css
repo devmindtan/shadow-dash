@@ -1,0 +1,87 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  color: #eaf6ff;
+}
+
+#renderCanvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+  outline: none;
+}
+
+.hidden {
+  display: none !important;
+}
+
+#hud {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  font-size: 28px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 1px;
+  text-shadow: 0 0 8px #4fd8ff;
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  pointer-events: none;
+}
+
+#shield {
+  font-size: 14px;
+  color: #6cf0ff;
+  border: 1px solid #6cf0ff;
+  border-radius: 4px;
+  padding: 2px 8px;
+  text-shadow: 0 0 6px #6cf0ff;
+}
+
+#overlay,
+#gameover {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 12px;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+#overlay h1,
+#gameover h1 {
+  font-size: 48px;
+  letter-spacing: 4px;
+  text-shadow: 0 0 16px #4fd8ff;
+}
+
+.hint {
+  max-width: 480px;
+  color: #9fb8c8;
+  font-size: 15px;
+}
+
+.start-hint {
+  margin-top: 8px;
+  color: #6cf0ff;
+  font-size: 14px;
+  opacity: 0.85;
+}
+
+#finalScore {
+  font-size: 22px;
+}
