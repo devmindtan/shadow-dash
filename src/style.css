@@ -20,16 +20,65 @@ body {
   display: block;
   touch-action: none;
   outline: none;
+  position: relative;
+  z-index: 0;
 }
 
 .hidden {
   display: none !important;
 }
 
+/* player + shield ring are plain CSS elements, not Babylon meshes — stays flat 2D */
+#player {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 5;
+  background: var(--char-color, #6cf0ff);
+  filter: drop-shadow(0 0 10px var(--char-color, #6cf0ff)) drop-shadow(0 0 20px var(--char-color, #6cf0ff));
+  transition: rotate 90ms linear;
+  pointer-events: none;
+}
+
+#player.dashing {
+  filter: drop-shadow(0 0 16px var(--char-color, #6cf0ff)) drop-shadow(0 0 32px var(--char-color, #6cf0ff)) brightness(1.6);
+}
+
+.dash-ghost {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 4;
+  pointer-events: none;
+  opacity: 0.5;
+  animation: dashGhostFade 260ms ease-out forwards;
+}
+
+@keyframes dashGhostFade {
+  from {
+    opacity: 0.5;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+#shieldRing {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 5;
+  border-radius: 50%;
+  border: 3px solid #4fd8ff;
+  box-shadow: 0 0 10px #4fd8ff;
+  pointer-events: none;
+}
+
 #hud {
   position: fixed;
   top: 16px;
   left: 16px;
+  z-index: 8;
   font-size: 28px;
   font-variant-numeric: tabular-nums;
   letter-spacing: 1px;
@@ -40,7 +89,7 @@ body {
   pointer-events: none;
 }
 
-#shield {
+.hud-badge {
   font-size: 14px;
   color: #6cf0ff;
   border: 1px solid #6cf0ff;
@@ -49,10 +98,17 @@ body {
   text-shadow: 0 0 6px #6cf0ff;
 }
 
+.hud-badge.cooldown {
+  color: #4a5a63;
+  border-color: #4a5a63;
+  text-shadow: none;
+}
+
 #overlay,
 #gameover {
   position: fixed;
   inset: 0;
+  z-index: 10;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -84,4 +140,38 @@ body {
 
 #finalScore {
   font-size: 22px;
+}
+
+#characterSelect {
+  display: flex;
+  gap: 14px;
+  margin: 8px 0 4px;
+}
+
+.character-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: 1px solid #2a3a42;
+  border-radius: 8px;
+  padding: 12px 16px;
+  color: #9fb8c8;
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.character-btn .swatch {
+  width: 26px;
+  height: 26px;
+  background: var(--btn-color);
+  filter: drop-shadow(0 0 6px var(--btn-color));
+}
+
+.character-btn.selected {
+  border-color: var(--btn-color);
+  color: #eaf6ff;
+  box-shadow: 0 0 12px -4px var(--btn-color);
 }

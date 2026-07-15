@@ -4,35 +4,30 @@ import { FreeCamera } from "@babylonjs/core/Cameras/freeCamera";
 import { Camera } from "@babylonjs/core/Cameras/camera";
 import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector";
-import { Color3, Color4 } from "@babylonjs/core/Maths/math.color";
+import { Color4 } from "@babylonjs/core/Maths/math.color";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
 import type { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { GlowLayer } from "@babylonjs/core/Layers/glowLayer";
-
-// --- tunables ---------------------------------------------------------
-const PLAYER_RADIUS = 14;
-const PLAYER_SPEED = 480; // px/s, keyboard control
-const ORB_RADIUS = 12;
-const ORB_INTERVAL_START = 1100; // ms between spawns
-const ORB_INTERVAL_MIN = 220;
-const ORB_SPEED_START = 130; // px/s
-const ORB_SPEED_MAX = 420;
-const DIFFICULTY_RAMP_SECONDS = 60;
-const POWERUP_RADIUS = 10;
-const POWERUP_INTERVAL_MIN = 4000;
-const POWERUP_INTERVAL_MAX = 8000;
-const SHIELD_DURATION_MS = 5000;
+import { CHARACTERS, SHIELD_RING, DARK_ORB, POWER_UP } from "./entities";
+import type { CharacterDef } from "./entities";
 
 type GameState = "start" | "playing" | "gameover";
 
 const canvas = document.getElementById("renderCanvas") as HTMLCanvasElement;
+const playerEl = document.getElementById("player")!;
+const shieldRingEl = document.getElementById("shieldRing")!;
 const scoreEl = document.getElementById("score")!;
-const shieldEl = document.getElementById("shield")!;
+const shieldBadgeEl = document.getElementById("shield")!;
+const dashBadgeEl = document.getElementById("dash")!;
 const overlayEl = document.getElementById("overlay")!;
 const gameoverEl = document.getElementById("gameover")!;
 const finalScoreEl = document.getElementById("finalScore")!;
+const characterSelectEl = document.getElementById("characterSelect")!;
 
+// Orbs and power-ups stay Babylon meshes (they already read as flat 2D circles
+// head-on through the orthographic camera). The player is a plain CSS element —
+// see entities.ts for why — positioned each frame via worldToScreen below.
 const engine = new Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true });
 const scene = new Scene(engine);
 scene.clearColor = new Color4(0.02, 0.02, 0.04, 1);
@@ -57,10 +52,6 @@ function applyCameraBounds() {
   camera.orthoBottom = -halfH;
 }
 
-function screenToWorld(clientX: number, clientY: number) {
-  return { x: clientX - halfW, y: halfH - clientY };
-}
-
 function clampToBounds(x: number, y: number, margin: number) {
   return {
     x: Math.max(-halfW + margin, Math.min(halfW - margin, x)),
@@ -68,25 +59,56 @@ function clampToBounds(x: number, y: number, margin: number) {
   };
 }
 
-// --- player -------------------------------------------------------------
-const player = MeshBuilder.CreateBox("player", { size: PLAYER_RADIUS * 2 }, scene);
-const playerMat = new StandardMaterial("playerMat", scene);
-playerMat.emissiveColor = new Color3(0.6, 0.95, 1);
-playerMat.disableLighting = true;
-player.material = playerMat;
+function worldToScreen(x: number, y: number) {
+  return { sx: halfW + x, sy: halfH - y };
+}
 
-const shieldRing = MeshBuilder.CreateTorus("shield", { diameter: PLAYER_RADIUS * 3.2, thickness: 3 }, scene);
-const shieldMat = new StandardMaterial("shieldMat", scene);
-shieldMat.emissiveColor = new Color3(0.3, 0.8, 1);
-shieldMat.disableLighting = true;
-shieldMat.alpha = 0.7;
-shieldRing.material = shieldMat;
-shieldRing.isVisible = false;
-shieldRing.rotation.x = Math.PI / 2;
+// --- character select -------------------------------------------------------
+let selectedCharacter: CharacterDef = CHARACTERS[0];
+
+function applyCharacterVisual(char: CharacterDef) {
+  playerEl.style.setProperty("--char-color", char.color);
+  playerEl.style.width = `${char.radius * 2}px`;
+  playerEl.style.height = `${char.radius * 2}px`;
+  playerEl.style.clipPath = char.clipPath;
+  const ringSize = char.radius * 2 * SHIELD_RING.radiusMultiplier;
+  shieldRingEl.style.width = `${ringSize}px`;
+  shieldRingEl.style.height = `${ringSize}px`;
+}
+
+const characterButtons: HTMLButtonElement[] = [];
+for (const char of CHARACTERS) {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "character-btn";
+  btn.style.setProperty("--btn-color", char.color);
+  btn.innerHTML = `<span class="swatch" style="clip-path: ${char.clipPath}"></span><span>${char.name}</span>`;
+  btn.addEventListener("pointerdown", (e) => {
+    e.stopPropagation();
+    selectedCharacter = char;
+    applyCharacterVisual(char);
+    for (const b of characterButtons) b.classList.remove("selected");
+    btn.classList.add("selected");
+  });
+  characterSelectEl.appendChild(btn);
+  characterButtons.push(btn);
+}
+characterButtons[0]?.classList.add("selected");
+applyCharacterVisual(selectedCharacter);
 
 let playerPos = { x: 0, y: 0 };
+let facing = { x: 0, y: 1 };
 
-// --- entities -------------------------------------------------------------
+function renderPlayerEl() {
+  const { sx, sy } = worldToScreen(playerPos.x, playerPos.y);
+  const r = selectedCharacter.radius;
+  playerEl.style.setProperty("translate", `${sx - r}px ${sy - r}px`);
+  const angleDeg = (Math.atan2(-facing.y, facing.x) * 180) / Math.PI;
+  playerEl.style.setProperty("rotate", `${angleDeg}deg`);
+}
+renderPlayerEl();
+
+// --- orbs / power-ups -------------------------------------------------------
 interface Orb {
   mesh: Mesh;
   vx: number;
@@ -98,12 +120,12 @@ interface PowerUp {
 }
 
 const orbMat = new StandardMaterial("orbMat", scene);
-orbMat.emissiveColor = new Color3(0.5, 0.05, 0.15);
-orbMat.diffuseColor = new Color3(0.05, 0.02, 0.05);
+orbMat.emissiveColor = DARK_ORB.color;
+orbMat.diffuseColor = DARK_ORB.dimColor;
 orbMat.disableLighting = true;
 
 const powerMat = new StandardMaterial("powerMat", scene);
-powerMat.emissiveColor = new Color3(1, 0.85, 0.3);
+powerMat.emissiveColor = POWER_UP.color;
 powerMat.disableLighting = true;
 
 let orbs: Orb[] = [];
@@ -117,7 +139,7 @@ function spawnOrb(speed: number) {
   const dx = playerPos.x - sx;
   const dy = playerPos.y - sy;
   const len = Math.hypot(dx, dy) || 1;
-  const mesh = MeshBuilder.CreateSphere("orb", { diameter: ORB_RADIUS * 2 }, scene);
+  const mesh = MeshBuilder.CreateSphere("orb", { diameter: DARK_ORB.radius * 2 }, scene);
   mesh.material = orbMat;
   mesh.position.x = sx;
   mesh.position.y = sy;
@@ -128,7 +150,7 @@ function spawnPowerUp() {
   const margin = 60;
   const x = (Math.random() * 2 - 1) * (halfW - margin);
   const y = (Math.random() * 2 - 1) * (halfH - margin);
-  const mesh = MeshBuilder.CreateSphere("power", { diameter: POWERUP_RADIUS * 2 }, scene);
+  const mesh = MeshBuilder.CreateSphere("power", { diameter: POWER_UP.radius * 2 }, scene);
   mesh.material = powerMat;
   mesh.position.x = x;
   mesh.position.y = y;
@@ -142,31 +164,71 @@ function clearEntities() {
   powerUps = [];
 }
 
-// --- input ----------------------------------------------------------------
-const keys = new Set<string>();
-window.addEventListener("keydown", (e) => {
-  if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) keys.add(e.key);
-  if (state !== "playing") startGame();
-});
-window.addEventListener("keyup", (e) => keys.delete(e.key));
-window.addEventListener("pointerdown", () => {
-  if (state !== "playing") startGame();
-});
-canvas.addEventListener("pointermove", (e) => {
+// --- dash --------------------------------------------------------------------
+let lastDashAt = -Infinity;
+
+function spawnDashGhost(x: number, y: number) {
+  const ghost = document.createElement("div");
+  ghost.className = "dash-ghost";
+  const r = selectedCharacter.radius;
+  ghost.style.width = `${r * 2}px`;
+  ghost.style.height = `${r * 2}px`;
+  ghost.style.background = selectedCharacter.color;
+  ghost.style.clipPath = selectedCharacter.clipPath;
+  const { sx, sy } = worldToScreen(x, y);
+  ghost.style.setProperty("translate", `${sx - r}px ${sy - r}px`);
+  ghost.style.setProperty("rotate", playerEl.style.getPropertyValue("rotate"));
+  document.body.appendChild(ghost);
+  setTimeout(() => ghost.remove(), 260);
+}
+
+function tryDash() {
   if (state !== "playing") return;
-  const w = screenToWorld(e.clientX, e.clientY);
-  const clamped = clampToBounds(w.x, w.y, PLAYER_RADIUS);
+  const now = performance.now();
+  if (now - lastDashAt < selectedCharacter.dashCooldownMs) return;
+  lastDashAt = now;
+
+  const startX = playerPos.x;
+  const startY = playerPos.y;
+  const clamped = clampToBounds(
+    playerPos.x + facing.x * selectedCharacter.dashDistance,
+    playerPos.y + facing.y * selectedCharacter.dashDistance,
+    selectedCharacter.radius
+  );
   playerPos.x = clamped.x;
   playerPos.y = clamped.y;
+  renderPlayerEl();
+
+  const steps = 4;
+  for (let i = 1; i <= steps; i++) {
+    const t = i / steps;
+    spawnDashGhost(startX + (playerPos.x - startX) * t, startY + (playerPos.y - startY) * t);
+  }
+  playerEl.classList.add("dashing");
+  setTimeout(() => playerEl.classList.remove("dashing"), 150);
+}
+
+// --- input -------------------------------------------------------------------
+const MOVE_KEYS = new Set(["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d"]);
+const keys = new Set<string>();
+window.addEventListener("keydown", (e) => {
+  const key = e.key.toLowerCase();
+  if (MOVE_KEYS.has(key)) keys.add(key);
+  if (key === "shift") tryDash();
+  if (e.code === "Space" && state !== "playing") startGame();
+});
+window.addEventListener("keyup", (e) => keys.delete(e.key.toLowerCase()));
+window.addEventListener("pointerdown", () => {
+  if (state !== "playing") startGame();
 });
 
 // --- game state -------------------------------------------------------------
 let state: GameState = "start";
 let elapsed = 0;
 let orbSpawnTimer = 0;
-let orbInterval = ORB_INTERVAL_START;
+let orbInterval = DARK_ORB.spawnIntervalStartMs;
 let powerUpTimer = 0;
-let powerUpNextIn = randRange(POWERUP_INTERVAL_MIN, POWERUP_INTERVAL_MAX);
+let powerUpNextIn = randRange(POWER_UP.spawnIntervalMinMs, POWER_UP.spawnIntervalMaxMs);
 let shieldActive = false;
 let shieldUntil = 0;
 
@@ -177,15 +239,17 @@ function randRange(min: number, max: number) {
 function startGame() {
   clearEntities();
   playerPos = { x: 0, y: 0 };
+  facing = { x: 0, y: 1 };
   state = "playing";
   elapsed = 0;
   orbSpawnTimer = 0;
-  orbInterval = ORB_INTERVAL_START;
+  orbInterval = DARK_ORB.spawnIntervalStartMs;
   powerUpTimer = 0;
-  powerUpNextIn = randRange(POWERUP_INTERVAL_MIN, POWERUP_INTERVAL_MAX);
+  powerUpNextIn = randRange(POWER_UP.spawnIntervalMinMs, POWER_UP.spawnIntervalMaxMs);
   shieldActive = false;
-  shieldRing.isVisible = false;
-  shieldEl.classList.add("hidden");
+  lastDashAt = -Infinity;
+  shieldRingEl.classList.add("hidden");
+  shieldBadgeEl.classList.add("hidden");
   overlayEl.classList.add("hidden");
   gameoverEl.classList.add("hidden");
 }
@@ -200,38 +264,41 @@ scene.onBeforeRenderObservable.add(() => {
   const dt = engine.getDeltaTime() / 1000;
 
   if (state !== "playing") {
-    player.position.x = playerPos.x;
-    player.position.y = playerPos.y;
+    renderPlayerEl();
     return;
   }
 
   elapsed += dt;
   scoreEl.textContent = elapsed.toFixed(1);
 
-  // keyboard movement (mouse sets playerPos directly on pointermove)
+  // keyboard movement — arrow keys or WASD only
   let dx = 0;
   let dy = 0;
-  if (keys.has("ArrowLeft")) dx -= 1;
-  if (keys.has("ArrowRight")) dx += 1;
-  if (keys.has("ArrowUp")) dy += 1;
-  if (keys.has("ArrowDown")) dy -= 1;
+  if (keys.has("arrowleft") || keys.has("a")) dx -= 1;
+  if (keys.has("arrowright") || keys.has("d")) dx += 1;
+  if (keys.has("arrowup") || keys.has("w")) dy += 1;
+  if (keys.has("arrowdown") || keys.has("s")) dy -= 1;
   if (dx !== 0 || dy !== 0) {
     const len = Math.hypot(dx, dy);
+    facing = { x: dx / len, y: dy / len };
     const clamped = clampToBounds(
-      playerPos.x + (dx / len) * PLAYER_SPEED * dt,
-      playerPos.y + (dy / len) * PLAYER_SPEED * dt,
-      PLAYER_RADIUS
+      playerPos.x + facing.x * selectedCharacter.speed * dt,
+      playerPos.y + facing.y * selectedCharacter.speed * dt,
+      selectedCharacter.radius
     );
     playerPos.x = clamped.x;
     playerPos.y = clamped.y;
   }
-  player.position.x = playerPos.x;
-  player.position.y = playerPos.y;
+  renderPlayerEl();
+
+  // dash cooldown badge
+  const dashReady = performance.now() - lastDashAt >= selectedCharacter.dashCooldownMs;
+  dashBadgeEl.classList.toggle("cooldown", !dashReady);
 
   // difficulty ramp
-  const t = Math.min(elapsed / DIFFICULTY_RAMP_SECONDS, 1);
-  orbInterval = ORB_INTERVAL_START + (ORB_INTERVAL_MIN - ORB_INTERVAL_START) * t;
-  const orbSpeed = ORB_SPEED_START + (ORB_SPEED_MAX - ORB_SPEED_START) * t;
+  const t = Math.min(elapsed / DARK_ORB.difficultyRampSeconds, 1);
+  orbInterval = DARK_ORB.spawnIntervalStartMs + (DARK_ORB.spawnIntervalMinMs - DARK_ORB.spawnIntervalStartMs) * t;
+  const orbSpeed = DARK_ORB.speedStart + (DARK_ORB.speedMax - DARK_ORB.speedStart) * t;
 
   orbSpawnTimer += dt * 1000;
   while (orbSpawnTimer >= orbInterval) {
@@ -242,19 +309,20 @@ scene.onBeforeRenderObservable.add(() => {
   powerUpTimer += dt * 1000;
   if (powerUpTimer >= powerUpNextIn) {
     powerUpTimer = 0;
-    powerUpNextIn = randRange(POWERUP_INTERVAL_MIN, POWERUP_INTERVAL_MAX);
+    powerUpNextIn = randRange(POWER_UP.spawnIntervalMinMs, POWER_UP.spawnIntervalMaxMs);
     spawnPowerUp();
   }
 
   // shield timeout
   if (shieldActive && performance.now() >= shieldUntil) {
     shieldActive = false;
-    shieldRing.isVisible = false;
-    shieldEl.classList.add("hidden");
+    shieldRingEl.classList.add("hidden");
+    shieldBadgeEl.classList.add("hidden");
   }
   if (shieldActive) {
-    shieldRing.position.x = playerPos.x;
-    shieldRing.position.y = playerPos.y;
+    const r = selectedCharacter.radius * SHIELD_RING.radiusMultiplier;
+    const { sx, sy } = worldToScreen(playerPos.x, playerPos.y);
+    shieldRingEl.style.setProperty("translate", `${sx - r}px ${sy - r}px`);
   }
 
   // update orbs, cull off-screen, check collision
@@ -272,7 +340,7 @@ scene.onBeforeRenderObservable.add(() => {
     }
 
     const dPlayer = Math.hypot(o.mesh.position.x - playerPos.x, o.mesh.position.y - playerPos.y);
-    if (dPlayer < ORB_RADIUS + PLAYER_RADIUS) {
+    if (dPlayer < DARK_ORB.radius + selectedCharacter.radius) {
       if (shieldActive) {
         o.mesh.dispose();
         orbs.splice(i, 1);
@@ -287,13 +355,13 @@ scene.onBeforeRenderObservable.add(() => {
   for (let i = powerUps.length - 1; i >= 0; i--) {
     const p = powerUps[i];
     const dPlayer = Math.hypot(p.mesh.position.x - playerPos.x, p.mesh.position.y - playerPos.y);
-    if (dPlayer < POWERUP_RADIUS + PLAYER_RADIUS) {
+    if (dPlayer < POWER_UP.radius + selectedCharacter.radius) {
       p.mesh.dispose();
       powerUps.splice(i, 1);
       shieldActive = true;
-      shieldUntil = performance.now() + SHIELD_DURATION_MS;
-      shieldRing.isVisible = true;
-      shieldEl.classList.remove("hidden");
+      shieldUntil = performance.now() + POWER_UP.shieldDurationMs;
+      shieldRingEl.classList.remove("hidden");
+      shieldBadgeEl.classList.remove("hidden");
     } else {
       const pulse = 1 + Math.sin(performance.now() / 150 + i) * 0.15;
       p.mesh.scaling.setAll(pulse);

@@ -8,19 +8,23 @@
   </head>
   <body>
     <canvas id="renderCanvas"></canvas>
+    <div id="player"></div>
+    <div id="shieldRing" class="hidden"></div>
     <div id="hud">
       <span id="score">0.0</span>
-      <span id="shield" class="hidden">SHIELD</span>
+      <span id="shield" class="hud-badge hidden">SHIELD</span>
+      <span id="dash" class="hud-badge">DASH</span>
     </div>
     <div id="overlay">
       <h1>SHADOW DASH</h1>
-      <p class="hint">Di chuyển bằng chuột hoặc phím mũi tên. Né các quả cầu bóng tối, thu thập điểm sáng để có khiên bảo vệ.</p>
-      <p class="start-hint">Nhấn phím bất kỳ hoặc bấm chuột để bắt đầu</p>
+      <p class="hint">Di chuyển bằng phím mũi tên hoặc WASD, Shift để Dash. Né các quả cầu bóng tối, thu thập điểm sáng để có khiên bảo vệ.</p>
+      <div id="characterSelect"></div>
+      <p class="start-hint">Nhấn Space hoặc bấm chuột để bắt đầu</p>
     </div>
     <div id="gameover" class="hidden">
       <h1>GAME OVER</h1>
       <p id="finalScore"></p>
-      <p class="start-hint">Nhấn phím bất kỳ hoặc bấm chuột để chơi lại</p>
+      <p class="start-hint">Nhấn Space hoặc bấm chuột để chơi lại</p>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
