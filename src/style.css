@@ -44,6 +44,16 @@ body {
   filter: drop-shadow(0 0 16px var(--char-color, #6cf0ff)) drop-shadow(0 0 32px var(--char-color, #6cf0ff)) brightness(1.6);
 }
 
+#player.invulnerable {
+  animation: invulnFlicker 120ms steps(1) infinite;
+}
+
+@keyframes invulnFlicker {
+  50% {
+    opacity: 0.35;
+  }
+}
+
 .dash-ghost {
   position: fixed;
   top: 0;
@@ -60,6 +70,66 @@ body {
   }
   to {
     opacity: 0;
+  }
+}
+
+#waveBanner {
+  position: fixed;
+  top: 30%;
+  left: 50%;
+  translate: -50% -50%;
+  z-index: 9;
+  font-size: 32px;
+  letter-spacing: 6px;
+  color: #6cf0ff;
+  text-shadow: 0 0 20px #6cf0ff;
+  pointer-events: none;
+  opacity: 0;
+}
+
+#waveBanner.show {
+  animation: waveBannerPulse 1600ms ease-out forwards;
+}
+
+@keyframes waveBannerPulse {
+  0% {
+    opacity: 0;
+    scale: 0.8;
+  }
+  15% {
+    opacity: 1;
+    scale: 1.05;
+  }
+  25% {
+    scale: 1;
+  }
+  75% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.hit-burst {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 6;
+  pointer-events: none;
+  border-radius: 50%;
+  background: radial-gradient(circle, currentColor 0%, color-mix(in srgb, currentColor 40%, transparent) 55%, transparent 75%);
+  animation: hitBurst 300ms ease-out forwards;
+}
+
+@keyframes hitBurst {
+  from {
+    opacity: 0.9;
+    scale: 0.3;
+  }
+  to {
+    opacity: 0;
+    scale: 1;
   }
 }
 
@@ -104,8 +174,25 @@ body {
   text-shadow: none;
 }
 
-#overlay,
-#gameover {
+#health {
+  display: flex;
+  gap: 5px;
+}
+
+.hp-pip {
+  width: 14px;
+  height: 14px;
+  background: var(--char-color, #6cf0ff);
+  filter: drop-shadow(0 0 4px var(--char-color, #6cf0ff));
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+}
+
+.hp-pip.lost {
+  background: #2a3a42;
+  filter: none;
+}
+
+#menu {
   position: fixed;
   inset: 0;
   z-index: 10;
@@ -118,8 +205,7 @@ body {
   background: rgba(0, 0, 0, 0.55);
 }
 
-#overlay h1,
-#gameover h1 {
+#menu h1 {
   font-size: 48px;
   letter-spacing: 4px;
   text-shadow: 0 0 16px #4fd8ff;
