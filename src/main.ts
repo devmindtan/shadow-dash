@@ -33,6 +33,7 @@ const characterSelectEl = document.getElementById("characterSelect")!;
 const characterInfoEl = document.getElementById("characterInfo")!;
 const upgradePickEl = document.getElementById("upgradePick")!;
 const upgradeCardsEl = document.getElementById("upgradeCards")!;
+const upgradeLogEl = document.getElementById("upgradeLog")!;
 
 // Orbs and power-ups stay Babylon meshes (they already read as flat 2D circles
 // head-on through the orthographic camera). The player is a plain CSS element —
@@ -144,14 +145,23 @@ interface RunStats {
   dashCooldownMs: number;
   dashDistance: number;
   dashPowerMultiplier: number; // scales pierce/shockwave radius or phase duration
+  dashChainLevel: number; // 0 = not picked yet
+  dashMagnetLevel: number;
+  dashShockburstLevel: number;
 }
-let runStats: RunStats = {
-  maxHp: selectedCharacter.maxHp,
-  speed: selectedCharacter.speed,
-  dashCooldownMs: selectedCharacter.dashCooldownMs,
-  dashDistance: selectedCharacter.dashDistance,
-  dashPowerMultiplier: 1,
-};
+function freshRunStats(): RunStats {
+  return {
+    maxHp: selectedCharacter.maxHp,
+    speed: selectedCharacter.speed,
+    dashCooldownMs: selectedCharacter.dashCooldownMs,
+    dashDistance: selectedCharacter.dashDistance,
+    dashPowerMultiplier: 1,
+    dashChainLevel: 0,
+    dashMagnetLevel: 0,
+    dashShockburstLevel: 0,
+  };
+}
+let runStats: RunStats = freshRunStats();
 
 // --- best score (persisted) --------------------------------------------------
 const BEST_SCORE_KEY = "shadowdash-best-score";
@@ -342,6 +352,8 @@ function tryDash() {
   playerPos.y = clamped.y;
   renderPlayerEl();
 
+  let killedCount = 0;
+
   // dash effect is a real gameplay mechanic, not just visual — see entities.ts DashEffect
   // dashPowerMultiplier (from picked-up upgrades) scales whichever of these applies
   if (selectedCharacter.dashEffect === "pierce") {
@@ -351,6 +363,7 @@ function tryDash() {
       const o = orbs[i];
       if (distToSegment(o.mesh.position.x, o.mesh.position.y, startX, startY, playerPos.x, playerPos.y) < hitRadius) {
         destroyOrb(o, i);
+        killedCount++;
       }
     }
   } else if (selectedCharacter.dashEffect === "shockwave") {
@@ -360,6 +373,7 @@ function tryDash() {
       const o = orbs[i];
       if (Math.hypot(o.mesh.position.x - playerPos.x, o.mesh.position.y - playerPos.y) < radius + o.radius) {
         destroyOrb(o, i);
+        killedCount++;
       }
     }
     spawnBurst(playerPos.x, playerPos.y, selectedCharacter.color, radius * 2);
@@ -369,6 +383,34 @@ function tryDash() {
     invulnerableUntil = Math.max(invulnerableUntil, now + phaseDurationMs);
     playerEl.classList.add("invulnerable");
     setTimeout(() => playerEl.classList.remove("invulnerable"), phaseDurationMs);
+  }
+
+  // effect upgrades layer on top of whatever the character's core dashEffect does
+  if (runStats.dashShockburstLevel > 0) {
+    const bonusRadius = selectedCharacter.radius * runStats.dashShockburstLevel * 0.8;
+    for (let i = orbs.length - 1; i >= 0; i--) {
+      const o = orbs[i];
+      if (Math.hypot(o.mesh.position.x - playerPos.x, o.mesh.position.y - playerPos.y) < bonusRadius + o.radius) {
+        destroyOrb(o, i);
+        killedCount++;
+      }
+    }
+    spawnBurst(playerPos.x, playerPos.y, "#ffffff", bonusRadius * 2);
+  }
+
+  if (runStats.dashMagnetLevel > 0) {
+    const pullRadius = 150 + runStats.dashMagnetLevel * 100;
+    for (const p of powerUps) {
+      const d = Math.hypot(p.mesh.position.x - playerPos.x, p.mesh.position.y - playerPos.y);
+      if (d < pullRadius) {
+        p.mesh.position.x += (playerPos.x - p.mesh.position.x) * 0.6;
+        p.mesh.position.y += (playerPos.y - p.mesh.position.y) * 0.6;
+      }
+    }
+  }
+
+  if (runStats.dashChainLevel > 0 && killedCount > 0) {
+    lastDashAt -= runStats.dashCooldownMs * Math.min(0.5, runStats.dashChainLevel * 0.15);
   }
 
   const steps = 4;
@@ -418,6 +460,21 @@ function showWaveBanner(waveNum: number) {
   setTimeout(() => waveBannerEl.classList.add("hidden"), 1600);
 }
 
+// Picking the same upgrade again stacks it — tracked here purely for the
+// "next level" display and to know how far each effect upgrade has stacked.
+const acquiredUpgrades = new Map<UpgradeDef["id"], number>();
+
+function renderUpgradeLog() {
+  upgradeLogEl.innerHTML = "";
+  for (const [id, level] of acquiredUpgrades) {
+    const def = UPGRADES.find((u) => u.id === id)!;
+    const badge = document.createElement("span");
+    badge.className = "hud-badge";
+    badge.textContent = `${def.name} Lv.${level}`;
+    upgradeLogEl.appendChild(badge);
+  }
+}
+
 function applyUpgrade(id: UpgradeDef["id"]) {
   switch (id) {
     case "heal":
@@ -439,8 +496,19 @@ function applyUpgrade(id: UpgradeDef["id"]) {
     case "move_speed":
       runStats.speed = Math.round(runStats.speed * 1.1);
       break;
+    case "dash_chain":
+      runStats.dashChainLevel += 1;
+      break;
+    case "dash_magnet":
+      runStats.dashMagnetLevel += 1;
+      break;
+    case "dash_shockburst":
+      runStats.dashShockburstLevel += 1;
+      break;
   }
+  acquiredUpgrades.set(id, (acquiredUpgrades.get(id) ?? 0) + 1);
   renderHealthPips();
+  renderUpgradeLog();
 }
 
 function offerUpgrades() {
@@ -454,10 +522,12 @@ function offerUpgrades() {
 
   upgradeCardsEl.innerHTML = "";
   for (const upg of choices) {
+    const ownedLevel = acquiredUpgrades.get(upg.id) ?? 0;
+    const title = ownedLevel > 0 ? `${upg.name} (Lv.${ownedLevel + 1})` : upg.name;
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "upgrade-btn";
-    btn.innerHTML = `<span class="upgrade-name">${upg.name}</span><span class="upgrade-desc">${upg.description}</span>`;
+    btn.innerHTML = `<span class="upgrade-name">${title}</span><span class="upgrade-desc">${upg.description}</span>`;
     btn.addEventListener("pointerdown", (e) => {
       e.stopPropagation();
       applyUpgrade(upg.id);
@@ -482,13 +552,9 @@ function startGame() {
   shieldActive = false;
   currentWave = 1;
   lastDashAt = -Infinity;
-  runStats = {
-    maxHp: selectedCharacter.maxHp,
-    speed: selectedCharacter.speed,
-    dashCooldownMs: selectedCharacter.dashCooldownMs,
-    dashDistance: selectedCharacter.dashDistance,
-    dashPowerMultiplier: 1,
-  };
+  runStats = freshRunStats();
+  acquiredUpgrades.clear();
+  renderUpgradeLog();
   hp = runStats.maxHp;
   invulnerableUntil = 0;
   playerEl.classList.remove("invulnerable");

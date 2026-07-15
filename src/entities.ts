@@ -150,20 +150,29 @@ export const WAVE = {
 // In-run upgrade pool (roguelite-style): each wave-clear pauses the game and
 // offers 3 random picks from here. These scale a per-run stat copy, not the
 // CHARACTERS entries themselves — a run's upgrades never carry over or affect
-// other characters. "power" is a single multiplier applied to whatever the
-// character's dashEffect actually does (pierce/shockwave radius, phase
-// duration) so one upgrade works meaningfully for every character.
+// other characters. Picking the same upgrade again stacks it to the next
+// level (main.ts tracks levels and shows "next level" on the card).
+//
+// Two categories, mixed together in the random draw rather than gated behind
+// a separate picker:
+//   stat   — scales an existing number (cooldown, distance, speed, HP)
+//   effect — a genuinely new Dash mechanic layered on top of whatever the
+//            character's core dashEffect already does (see tryDash() in main.ts)
 export interface UpgradeDef {
-  id: "heal" | "max_hp" | "dash_cooldown" | "dash_distance" | "dash_power" | "move_speed";
+  id: "heal" | "max_hp" | "dash_cooldown" | "dash_distance" | "dash_power" | "move_speed" | "dash_chain" | "dash_magnet" | "dash_shockburst";
   name: string;
   description: string;
+  category: "stat" | "effect";
 }
 
 export const UPGRADES: UpgradeDef[] = [
-  { id: "heal", name: "Hồi Máu", description: "Hồi ngay 1 ô máu." },
-  { id: "max_hp", name: "Máu Tối Đa", description: "+1 máu tối đa, hồi luôn ô đó." },
-  { id: "dash_cooldown", name: "Hồi Chiêu Nhanh", description: "Giảm 18% thời gian hồi Dash." },
-  { id: "dash_distance", name: "Lướt Xa", description: "+20% khoảng cách Dash." },
-  { id: "dash_power", name: "Dash Mạnh Hơn", description: "Tăng 25% hiệu lực Dash (bán kính phá quái hoặc thời gian bất tử, tùy nhân vật)." },
-  { id: "move_speed", name: "Nhanh Nhẹn", description: "+10% tốc độ di chuyển." },
+  { id: "heal", name: "Hồi Máu", description: "Hồi ngay 1 ô máu.", category: "stat" },
+  { id: "max_hp", name: "Máu Tối Đa", description: "+1 máu tối đa, hồi luôn ô đó.", category: "stat" },
+  { id: "dash_cooldown", name: "Hồi Chiêu Nhanh", description: "Giảm 18% thời gian hồi Dash.", category: "stat" },
+  { id: "dash_distance", name: "Lướt Xa", description: "+20% khoảng cách Dash.", category: "stat" },
+  { id: "dash_power", name: "Dash Mạnh Hơn", description: "Tăng 25% hiệu lực Dash (bán kính phá quái hoặc thời gian bất tử, tùy nhân vật).", category: "stat" },
+  { id: "move_speed", name: "Nhanh Nhẹn", description: "+10% tốc độ di chuyển.", category: "stat" },
+  { id: "dash_chain", name: "Dash Nối Tiếp", description: "Dash phá được ít nhất 1 quái sẽ được hoàn lại một phần thời gian hồi chiêu.", category: "effect" },
+  { id: "dash_magnet", name: "Từ Trường", description: "Dash hút các điểm sáng (power-up) gần đó lại phía bạn.", category: "effect" },
+  { id: "dash_shockburst", name: "Dư Chấn", description: "Mọi cú Dash đều gây thêm một vụ nổ nhỏ quanh điểm đáp, phá quái xung quanh — kể cả với Vanguard/Phantom.", category: "effect" },
 ];
