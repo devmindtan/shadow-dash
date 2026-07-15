@@ -261,3 +261,60 @@ body {
   color: #eaf6ff;
   box-shadow: 0 0 12px -4px var(--btn-color);
 }
+
+#upgradePick {
+  position: fixed;
+  inset: 0;
+  z-index: 11;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 20px;
+  background: rgba(0, 0, 0, 0.7);
+}
+
+#upgradePick h1 {
+  font-size: 32px;
+  letter-spacing: 4px;
+  text-shadow: 0 0 16px #6cf0ff;
+}
+
+#upgradeCards {
+  display: flex;
+  gap: 16px;
+}
+
+.upgrade-btn {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 180px;
+  background: none;
+  border: 1px solid #2a3a42;
+  border-radius: 8px;
+  padding: 16px;
+  color: #9fb8c8;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.upgrade-btn:hover,
+.upgrade-btn:focus-visible {
+  border-color: #6cf0ff;
+  color: #eaf6ff;
+  box-shadow: 0 0 12px -4px #6cf0ff;
+}
+
+.upgrade-name {
+  font-size: 15px;
+  color: #6cf0ff;
+  text-shadow: 0 0 6px #6cf0ff;
+}
+
+.upgrade-desc {
+  font-size: 12px;
+  line-height: 1.4;
+}

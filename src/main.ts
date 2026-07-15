@@ -9,8 +9,8 @@ import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
 import type { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { GlowLayer } from "@babylonjs/core/Layers/glowLayer";
-import { CHARACTERS, SHIELD_RING, DARK_ORB, ORB_TYPES, POWER_UP, WAVE } from "./entities";
-import type { CharacterDef, OrbTypeDef } from "./entities";
+import { CHARACTERS, SHIELD_RING, DARK_ORB, ORB_TYPES, POWER_UP, WAVE, UPGRADES } from "./entities";
+import type { CharacterDef, OrbTypeDef, UpgradeDef } from "./entities";
 import { sfxStart, sfxDash, sfxHit, sfxShield, sfxShieldBlock, sfxKill, sfxGameOver, sfxWave } from "./audio";
 
 type GameState = "start" | "playing" | "gameover";
@@ -31,6 +31,8 @@ const finalScoreEl = document.getElementById("finalScore")!;
 const waveBannerEl = document.getElementById("waveBanner")!;
 const characterSelectEl = document.getElementById("characterSelect")!;
 const characterInfoEl = document.getElementById("characterInfo")!;
+const upgradePickEl = document.getElementById("upgradePick")!;
+const upgradeCardsEl = document.getElementById("upgradeCards")!;
 
 // Orbs and power-ups stay Babylon meshes (they already read as flat 2D circles
 // head-on through the orthographic camera). The player is a plain CSS element —
@@ -133,6 +135,24 @@ function updateShieldRingPosition() {
   shieldRingEl.style.setProperty("translate", `${sx - r}px ${sy - r}px`);
 }
 
+// --- run stats (per-run, upgradeable copy of the character's numbers) --------
+// Upgrades scale this copy, never the shared CHARACTERS entries — nothing
+// carries over between runs or leaks into other characters.
+interface RunStats {
+  maxHp: number;
+  speed: number;
+  dashCooldownMs: number;
+  dashDistance: number;
+  dashPowerMultiplier: number; // scales pierce/shockwave radius or phase duration
+}
+let runStats: RunStats = {
+  maxHp: selectedCharacter.maxHp,
+  speed: selectedCharacter.speed,
+  dashCooldownMs: selectedCharacter.dashCooldownMs,
+  dashDistance: selectedCharacter.dashDistance,
+  dashPowerMultiplier: 1,
+};
+
 // --- best score (persisted) --------------------------------------------------
 const BEST_SCORE_KEY = "shadowdash-best-score";
 let bestScore = Number(localStorage.getItem(BEST_SCORE_KEY) ?? 0);
@@ -148,7 +168,7 @@ let invulnerableUntil = 0;
 
 function renderHealthPips() {
   healthEl.innerHTML = "";
-  for (let i = 0; i < selectedCharacter.maxHp; i++) {
+  for (let i = 0; i < runStats.maxHp; i++) {
     const pip = document.createElement("span");
     pip.className = "hp-pip" + (i >= hp ? " lost" : "");
     healthEl.appendChild(pip);
@@ -307,15 +327,15 @@ function destroyOrb(o: Orb, i: number) {
 function tryDash() {
   if (state !== "playing") return;
   const now = performance.now();
-  if (now - lastDashAt < selectedCharacter.dashCooldownMs) return;
+  if (now - lastDashAt < runStats.dashCooldownMs) return;
   lastDashAt = now;
   sfxDash();
 
   const startX = playerPos.x;
   const startY = playerPos.y;
   const clamped = clampToBounds(
-    playerPos.x + facing.x * selectedCharacter.dashDistance,
-    playerPos.y + facing.y * selectedCharacter.dashDistance,
+    playerPos.x + facing.x * runStats.dashDistance,
+    playerPos.y + facing.y * runStats.dashDistance,
     selectedCharacter.radius
   );
   playerPos.x = clamped.x;
@@ -323,9 +343,10 @@ function tryDash() {
   renderPlayerEl();
 
   // dash effect is a real gameplay mechanic, not just visual — see entities.ts DashEffect
+  // dashPowerMultiplier (from picked-up upgrades) scales whichever of these applies
   if (selectedCharacter.dashEffect === "pierce") {
     // destroys any orb swept by the dash's travel path
-    const hitRadius = selectedCharacter.radius + DARK_ORB.radius;
+    const hitRadius = (selectedCharacter.radius + DARK_ORB.radius) * runStats.dashPowerMultiplier;
     for (let i = orbs.length - 1; i >= 0; i--) {
       const o = orbs[i];
       if (distToSegment(o.mesh.position.x, o.mesh.position.y, startX, startY, playerPos.x, playerPos.y) < hitRadius) {
@@ -334,7 +355,7 @@ function tryDash() {
     }
   } else if (selectedCharacter.dashEffect === "shockwave") {
     // destroys everything in a radius around the landing point
-    const radius = selectedCharacter.radius * (selectedCharacter.dashRadiusMultiplier ?? 3.5);
+    const radius = selectedCharacter.radius * (selectedCharacter.dashRadiusMultiplier ?? 3.5) * runStats.dashPowerMultiplier;
     for (let i = orbs.length - 1; i >= 0; i--) {
       const o = orbs[i];
       if (Math.hypot(o.mesh.position.x - playerPos.x, o.mesh.position.y - playerPos.y) < radius + o.radius) {
@@ -344,9 +365,10 @@ function tryDash() {
     spawnBurst(playerPos.x, playerPos.y, selectedCharacter.color, radius * 2);
   } else {
     // phase: pure evasion — brief invulnerability, no orb destruction
-    invulnerableUntil = Math.max(invulnerableUntil, now + 350);
+    const phaseDurationMs = 350 * runStats.dashPowerMultiplier;
+    invulnerableUntil = Math.max(invulnerableUntil, now + phaseDurationMs);
     playerEl.classList.add("invulnerable");
-    setTimeout(() => playerEl.classList.remove("invulnerable"), 350);
+    setTimeout(() => playerEl.classList.remove("invulnerable"), phaseDurationMs);
   }
 
   const steps = 4;
@@ -396,6 +418,57 @@ function showWaveBanner(waveNum: number) {
   setTimeout(() => waveBannerEl.classList.add("hidden"), 1600);
 }
 
+function applyUpgrade(id: UpgradeDef["id"]) {
+  switch (id) {
+    case "heal":
+      hp = Math.min(hp + WAVE.healReward, runStats.maxHp);
+      break;
+    case "max_hp":
+      runStats.maxHp += 1;
+      hp += 1;
+      break;
+    case "dash_cooldown":
+      runStats.dashCooldownMs = Math.round(runStats.dashCooldownMs * 0.82);
+      break;
+    case "dash_distance":
+      runStats.dashDistance = Math.round(runStats.dashDistance * 1.2);
+      break;
+    case "dash_power":
+      runStats.dashPowerMultiplier *= 1.25;
+      break;
+    case "move_speed":
+      runStats.speed = Math.round(runStats.speed * 1.1);
+      break;
+  }
+  renderHealthPips();
+}
+
+function offerUpgrades() {
+  paused = true;
+  const pool = [...UPGRADES];
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  const choices = pool.slice(0, 3);
+
+  upgradeCardsEl.innerHTML = "";
+  for (const upg of choices) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "upgrade-btn";
+    btn.innerHTML = `<span class="upgrade-name">${upg.name}</span><span class="upgrade-desc">${upg.description}</span>`;
+    btn.addEventListener("pointerdown", (e) => {
+      e.stopPropagation();
+      applyUpgrade(upg.id);
+      upgradePickEl.classList.add("hidden");
+      paused = false;
+    });
+    upgradeCardsEl.appendChild(btn);
+  }
+  upgradePickEl.classList.remove("hidden");
+}
+
 function startGame() {
   clearEntities();
   playerPos = { x: 0, y: 0 };
@@ -409,7 +482,14 @@ function startGame() {
   shieldActive = false;
   currentWave = 1;
   lastDashAt = -Infinity;
-  hp = selectedCharacter.maxHp;
+  runStats = {
+    maxHp: selectedCharacter.maxHp,
+    speed: selectedCharacter.speed,
+    dashCooldownMs: selectedCharacter.dashCooldownMs,
+    dashDistance: selectedCharacter.dashDistance,
+    dashPowerMultiplier: 1,
+  };
+  hp = runStats.maxHp;
   invulnerableUntil = 0;
   playerEl.classList.remove("invulnerable");
   renderHealthPips();
@@ -455,17 +535,14 @@ scene.onBeforeRenderObservable.add(() => {
   elapsed += dt;
   scoreEl.textContent = elapsed.toFixed(1);
 
-  // wave-clear checkpoint — purely a felt milestone (banner/sound/small heal),
-  // Shadow Dash has no win state, this doesn't gate or change difficulty
+  // wave-clear checkpoint — a felt milestone (banner/sound + a roguelite-style
+  // upgrade pick), Shadow Dash has no win state, this doesn't gate progress
   const wave = Math.floor(elapsed / WAVE.intervalSeconds) + 1;
   if (wave > currentWave) {
     currentWave = wave;
     showWaveBanner(currentWave);
     sfxWave();
-    if (hp < selectedCharacter.maxHp) {
-      hp += WAVE.healReward;
-      renderHealthPips();
-    }
+    offerUpgrades();
   }
 
   // keyboard movement — arrow keys or WASD only
@@ -479,8 +556,8 @@ scene.onBeforeRenderObservable.add(() => {
     const len = Math.hypot(dx, dy);
     facing = { x: dx / len, y: dy / len };
     const clamped = clampToBounds(
-      playerPos.x + facing.x * selectedCharacter.speed * dt,
-      playerPos.y + facing.y * selectedCharacter.speed * dt,
+      playerPos.x + facing.x * runStats.speed * dt,
+      playerPos.y + facing.y * runStats.speed * dt,
       selectedCharacter.radius
     );
     playerPos.x = clamped.x;
@@ -489,7 +566,7 @@ scene.onBeforeRenderObservable.add(() => {
   renderPlayerEl();
 
   // dash cooldown badge, with time remaining
-  const cooldownLeftMs = selectedCharacter.dashCooldownMs - (performance.now() - lastDashAt);
+  const cooldownLeftMs = runStats.dashCooldownMs - (performance.now() - lastDashAt);
   if (cooldownLeftMs > 0) {
     dashBadgeEl.textContent = `DASH ${(cooldownLeftMs / 1000).toFixed(1)}s`;
     dashBadgeEl.classList.add("cooldown");

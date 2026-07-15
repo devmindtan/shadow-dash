@@ -146,3 +146,24 @@ export const WAVE = {
   intervalSeconds: 20,
   healReward: 1,
 };
+
+// In-run upgrade pool (roguelite-style): each wave-clear pauses the game and
+// offers 3 random picks from here. These scale a per-run stat copy, not the
+// CHARACTERS entries themselves — a run's upgrades never carry over or affect
+// other characters. "power" is a single multiplier applied to whatever the
+// character's dashEffect actually does (pierce/shockwave radius, phase
+// duration) so one upgrade works meaningfully for every character.
+export interface UpgradeDef {
+  id: "heal" | "max_hp" | "dash_cooldown" | "dash_distance" | "dash_power" | "move_speed";
+  name: string;
+  description: string;
+}
+
+export const UPGRADES: UpgradeDef[] = [
+  { id: "heal", name: "Hồi Máu", description: "Hồi ngay 1 ô máu." },
+  { id: "max_hp", name: "Máu Tối Đa", description: "+1 máu tối đa, hồi luôn ô đó." },
+  { id: "dash_cooldown", name: "Hồi Chiêu Nhanh", description: "Giảm 18% thời gian hồi Dash." },
+  { id: "dash_distance", name: "Lướt Xa", description: "+20% khoảng cách Dash." },
+  { id: "dash_power", name: "Dash Mạnh Hơn", description: "Tăng 25% hiệu lực Dash (bán kính phá quái hoặc thời gian bất tử, tùy nhân vật)." },
+  { id: "move_speed", name: "Nhanh Nhẹn", description: "+10% tốc độ di chuyển." },
+];

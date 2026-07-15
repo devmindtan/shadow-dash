@@ -19,7 +19,7 @@ Built:
 - HP system: hitting an orb without a Shield costs 1 HP (not instant death), with a brief invulnerability + flicker after each hit; HUD shows HP as small pips per character's max
 - 3 Dark Orb types, same power level, different mechanics: **Drifter** (straight line at the player's spawn-time position), **Wobbler** (weaves side-to-side while advancing), **Splitter** (travels straight, then splits into 2 shards after ~0.9s, with a burst effect)
 - Power-ups spawn randomly, grant a 5s Shield (visible ring + HUD badge) that fully absorbs orb hits (no HP cost, with its own burst + sound when it blocks a hit)
-- Wave-clear checkpoints every 20s (`WAVE` in `entities.ts`): a "WAVE N" banner + sound + small HP heal — a felt milestone, not a win/pass gate (Shadow Dash has no win state, score is just survival time)
+- Wave-clear checkpoints every 20s (`WAVE` in `entities.ts`): a "WAVE N" banner + sound, then the game pauses and offers a roguelite-style pick of 3 random upgrades (`UPGRADES` in `entities.ts`) — heal, +max HP, faster dash cooldown, longer dash, stronger dash effect, or +move speed. A felt milestone, not a win/pass gate (Shadow Dash has no win state, score is just survival time). Upgrades scale a per-run `runStats` copy, never the shared character data.
 - Difficulty is a ramp with a sine wave riding on top (`waveAmplitude`/`wavePeriodSeconds` in `entities.ts`) — intensity breathes (quieter dips, denser bursts) instead of climbing in a flat line
 - Game pauses on tab/window blur (`visibilitychange`) — alt-tabbing away doesn't cost you a run; frame delta is also clamped so a long stall never flings orbs/the player or dumps a huge chunk onto the score
 - Best score persists via `localStorage`, shown as a permanent HUD badge
