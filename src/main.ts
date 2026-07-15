@@ -123,27 +123,46 @@ for (const char of CHARACTERS) {
 characterButtons[0]?.classList.add("selected");
 applyCharacterVisual(selectedCharacter);
 
-// --- library (bestiary + upgrade reference) ----------------------------------
-function libraryItem(color: string, name: string, description: string, tag?: string) {
-  const item = document.createElement("div");
-  item.className = "library-item";
-  item.innerHTML = `
-    <span class="swatch" style="--item-color: ${color}"></span>
-    <span class="library-text">
-      ${tag ? `<span class="library-tag">${tag}</span>` : ""}
-      <span class="library-name">${name}</span>
-      <span class="library-desc">${description}</span>
-    </span>`;
-  return item;
+// --- library (bestiary + upgrade reference, styled like an open album) ------
+function libraryCard(index: number, color: string, name: string, description: string, tag?: string) {
+  const card = document.createElement("div");
+  card.className = "library-card";
+  card.style.setProperty("--item-color", color);
+  card.innerHTML = `
+    <span class="library-index">${String(index).padStart(2, "0")}</span>
+    ${tag ? `<span class="library-tag">${tag}</span>` : ""}
+    <span class="swatch"></span>
+    <span class="library-name">${name}</span>
+    <span class="library-desc">${description}</span>`;
+  return card;
 }
 
-for (const orbType of ORB_TYPES) {
-  orbLibraryEl.appendChild(libraryItem(orbType.cssColor, orbType.name, orbType.description));
-}
-for (const upg of UPGRADES) {
+ORB_TYPES.forEach((orbType, i) => {
+  orbLibraryEl.appendChild(libraryCard(i + 1, orbType.cssColor, orbType.name, orbType.description));
+});
+UPGRADES.forEach((upg, i) => {
   upgradeLibraryEl.appendChild(
-    libraryItem(upg.category === "effect" ? "#6cf0ff" : "#9fb8c8", upg.name, upg.description, upg.category === "effect" ? "Hiệu ứng" : "Chỉ số")
+    libraryCard(
+      i + 1,
+      upg.category === "effect" ? "#6cf0ff" : "#9fb8c8",
+      upg.name,
+      upg.description,
+      upg.category === "effect" ? "Hiệu ứng" : "Chỉ số"
+    )
   );
+});
+
+const libraryTabs = Array.from(document.querySelectorAll<HTMLButtonElement>(".library-tab"));
+const libraryGrids = { orbLibrary: orbLibraryEl, upgradeLibrary: upgradeLibraryEl };
+for (const tab of libraryTabs) {
+  tab.addEventListener("pointerdown", (e) => {
+    e.stopPropagation();
+    for (const t of libraryTabs) t.classList.remove("selected");
+    tab.classList.add("selected");
+    for (const [key, grid] of Object.entries(libraryGrids)) {
+      grid.classList.toggle("hidden", key !== tab.dataset.tab);
+    }
+  });
 }
 
 libraryBtn.addEventListener("pointerdown", (e) => {
@@ -186,6 +205,8 @@ interface RunStats {
   dashMagnetLevel: number;
   dashShockburstLevel: number;
   retaliateLevel: number;
+  auraLevel: number;
+  secondWindCharges: number;
 }
 function freshRunStats(): RunStats {
   return {
@@ -198,6 +219,8 @@ function freshRunStats(): RunStats {
     dashMagnetLevel: 0,
     dashShockburstLevel: 0,
     retaliateLevel: 0,
+    auraLevel: 0,
+    secondWindCharges: 0,
   };
 }
 let runStats: RunStats = freshRunStats();
@@ -226,6 +249,19 @@ function renderHealthPips() {
 
 function takeDamage() {
   hp -= 1;
+
+  // Hồi Sinh (Second Wind): a fatal hit is survived instead, once per charge
+  if (hp <= 0 && runStats.secondWindCharges > 0) {
+    runStats.secondWindCharges -= 1;
+    hp = 1;
+    renderHealthPips();
+    sfxShield();
+    invulnerableUntil = performance.now() + 1200;
+    playerEl.classList.add("invulnerable");
+    setTimeout(() => playerEl.classList.remove("invulnerable"), 1200);
+    return;
+  }
+
   renderHealthPips();
   sfxHit();
   invulnerableUntil = performance.now() + 900;
@@ -563,6 +599,12 @@ function applyUpgrade(id: UpgradeDef["id"]) {
     case "retaliate":
       runStats.retaliateLevel += 1;
       break;
+    case "aura":
+      runStats.auraLevel += 1;
+      break;
+    case "second_wind":
+      runStats.secondWindCharges += 1;
+      break;
   }
   acquiredUpgrades.set(id, (acquiredUpgrades.get(id) ?? 0) + 1);
   renderHealthPips();
@@ -732,7 +774,10 @@ scene.onBeforeRenderObservable.add(() => {
   const cullDist = Math.max(halfW, halfH) * 1.8;
   for (let i = orbs.length - 1; i >= 0; i--) {
     const o = orbs[i];
-    o.traveled += o.speed * dt;
+    // charge: crawls slowly, then bursts to a much higher speed after chargeAfterMs
+    const effSpeed =
+      o.type.behavior === "charge" && o.ageMs < (o.type.chargeAfterMs ?? 700) ? o.speed * 0.35 : o.speed;
+    o.traveled += effSpeed * dt;
     o.ageMs += dt * 1000;
 
     let px: number;
@@ -765,6 +810,15 @@ scene.onBeforeRenderObservable.add(() => {
       o.mesh.dispose();
       orbs.splice(i, 1);
       continue;
+    }
+
+    // Vòng Hào Quang (aura): passive kill radius, always on, no Dash needed
+    if (runStats.auraLevel > 0) {
+      const auraRadius = selectedCharacter.radius * (1 + runStats.auraLevel * 0.6);
+      if (Math.hypot(px - playerPos.x, py - playerPos.y) < auraRadius + o.radius) {
+        destroyOrb(o, i);
+        continue;
+      }
     }
 
     const distFromCenter = Math.hypot(px, py);

@@ -33,16 +33,19 @@
       <div id="upgradeCards"></div>
     </div>
     <div id="library" class="hidden">
-      <h1>THƯ VIỆN</h1>
-      <div id="libraryBody">
-        <section>
-          <h2>Quái Vật</h2>
-          <div id="orbLibrary" class="library-list"></div>
-        </section>
-        <section>
-          <h2>Nâng Cấp</h2>
-          <div id="upgradeLibrary" class="library-list"></div>
-        </section>
+      <div id="libraryBook">
+        <div id="libraryCover">
+          <h1>THƯ VIỆN</h1>
+          <p class="library-subtitle">Sổ Tay Bóng Tối</p>
+        </div>
+        <div id="libraryPage">
+          <div id="libraryTabs">
+            <button type="button" class="library-tab selected" data-tab="orbLibrary">Chương I — Quái Vật</button>
+            <button type="button" class="library-tab" data-tab="upgradeLibrary">Chương II — Nâng Cấp</button>
+          </div>
+          <div id="orbLibrary" class="library-grid"></div>
+          <div id="upgradeLibrary" class="library-grid hidden"></div>
+        </div>
       </div>
       <button type="button" id="libraryCloseBtn">Đóng</button>
     </div>

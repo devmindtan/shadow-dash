@@ -103,10 +103,11 @@ export interface OrbTypeDef {
   description: string;
   color: Color3; // Babylon material emissive
   cssColor: string; // same color, for DOM effects (hit-burst, split-burst)
-  behavior: "drift" | "wobble" | "split" | "track";
+  behavior: "drift" | "wobble" | "split" | "track" | "charge";
   wobbleAmplitude?: number; // px lateral offset (wobble only)
   wobbleFrequency?: number; // radians per px traveled (wobble only)
   splitAfterMs?: number; // time alive before splitting (split only)
+  chargeAfterMs?: number; // time crawling slowly before the speed burst (charge only)
 }
 
 export const ORB_TYPES: OrbTypeDef[] = [
@@ -144,6 +145,15 @@ export const ORB_TYPES: OrbTypeDef[] = [
     color: new Color3(0.05, 0.4, 0.45),
     cssColor: "#0d7a8c",
     behavior: "track", // re-aims toward the player's *current* position every frame
+  },
+  {
+    id: "charger",
+    name: "Kẻ Xung Phong",
+    description: "Bò chậm rãi lúc đầu, rồi bất ngờ lao nhanh gấp nhiều lần — né sớm vì khi nó lao thì đã quá trễ.",
+    color: new Color3(0.55, 0.28, 0.02),
+    cssColor: "#8c4705",
+    behavior: "charge", // crawls, then bursts to a much higher speed after chargeAfterMs
+    chargeAfterMs: 700,
   },
 ];
 
@@ -185,7 +195,9 @@ export interface UpgradeDef {
     | "dash_chain"
     | "dash_magnet"
     | "dash_shockburst"
-    | "retaliate";
+    | "retaliate"
+    | "aura"
+    | "second_wind";
   name: string;
   description: string;
   category: "stat" | "effect";
@@ -202,4 +214,6 @@ export const UPGRADES: UpgradeDef[] = [
   { id: "dash_magnet", name: "Từ Trường", description: "Dash hút các điểm sáng (power-up) gần đó lại phía bạn.", category: "effect" },
   { id: "dash_shockburst", name: "Dư Chấn", description: "Mọi cú Dash đều gây thêm một vụ nổ nhỏ quanh điểm đáp, phá quái xung quanh — kể cả với Vanguard/Phantom.", category: "effect" },
   { id: "retaliate", name: "Trả Đòn", description: "Khi bạn bị trúng đòn, mọi quái vật gần đó lập tức bị phá hủy theo — biến cú trúng đòn thành một đợt dọn quái.", category: "effect" },
+  { id: "aura", name: "Vòng Hào Quang", description: "Một vùng sát thương thụ động luôn bao quanh bạn, tự động phá hủy quái vật lại gần — không cần Dash.", category: "effect" },
+  { id: "second_wind", name: "Hồi Sinh", description: "Đòn chí mạng đầu tiên sau khi có nâng cấp này sẽ không giết bạn — thay vào đó hồi về 1 máu và cho một khoảng bất tử dài.", category: "effect" },
 ];
