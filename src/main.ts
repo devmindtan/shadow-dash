@@ -124,7 +124,7 @@ characterButtons[0]?.classList.add("selected");
 applyCharacterVisual(selectedCharacter);
 
 // --- library (bestiary + upgrade reference, styled like an open album) ------
-function libraryCard(index: number, color: string, name: string, description: string, tag?: string) {
+function libraryCard(index: number, color: string, name: string, description: string, tag?: string, levelDetails?: string[]) {
   const card = document.createElement("div");
   card.className = "library-card";
   card.style.setProperty("--item-color", color);
@@ -134,6 +134,23 @@ function libraryCard(index: number, color: string, name: string, description: st
     <span class="swatch"></span>
     <span class="library-name">${name}</span>
     <span class="library-desc">${description}</span>`;
+  if (levelDetails) {
+    card.classList.add("expandable");
+    const hint = document.createElement("span");
+    hint.className = "library-expand-hint";
+    hint.textContent = "Bấm để xem 5 cấp độ ▾";
+    card.appendChild(hint);
+    const levels = document.createElement("ul");
+    levels.className = "library-levels hidden";
+    levels.innerHTML = levelDetails.map((line) => `<li>${line}</li>`).join("");
+    card.appendChild(levels);
+    card.addEventListener("pointerdown", (e) => {
+      e.stopPropagation();
+      const expanded = card.classList.toggle("expanded");
+      levels.classList.toggle("hidden", !expanded);
+      hint.textContent = expanded ? "Bấm để thu gọn ▴" : "Bấm để xem 5 cấp độ ▾";
+    });
+  }
   return card;
 }
 
@@ -147,7 +164,8 @@ UPGRADES.forEach((upg, i) => {
       upg.category === "effect" ? "#6cf0ff" : "#9fb8c8",
       upg.name,
       upg.description,
-      upg.category === "effect" ? "Hiệu ứng" : "Chỉ số"
+      upg.category === "effect" ? "Hiệu ứng" : "Chỉ số",
+      upg.levelDetails
     )
   );
 });
@@ -191,6 +209,18 @@ function updateShieldRingPosition() {
   const { sx, sy } = worldToScreen(playerPos.x, playerPos.y);
   shieldRingEl.style.setProperty("translate", `${sx - r}px ${sy - r}px`);
 }
+
+// Level tables for the 6 effect upgrades — index 0 = level 1. These are the
+// single source of truth; entities.ts's levelDetails text is written to match
+// these exactly, so keep both in sync when tuning. Every effect upgrade caps
+// at 5 levels (see MAX_EFFECT_LEVEL / offerUpgrades()'s pool filter).
+const MAX_EFFECT_LEVEL = 5;
+const CHAIN_REFUND = [0.15, 0.28, 0.4, 0.52, 0.65];
+const MAGNET_RADIUS = [220, 300, 380, 460, 560];
+const MAGNET_PULL = [0.5, 0.55, 0.6, 0.65, 0.75];
+const SHOCKBURST_MULT = [2.2, 3.0, 3.8, 4.8, 6.5];
+const RETALIATE_MULT = [1.8, 2.6, 3.4, 4.2, 5.2];
+const AURA_MULT = [1.6, 2.1, 2.6, 3.2, 4.5];
 
 // --- run stats (per-run, upgradeable copy of the character's numbers) --------
 // Upgrades scale this copy, never the shared CHARACTERS entries — nothing
@@ -269,7 +299,7 @@ function takeDamage() {
   setTimeout(() => playerEl.classList.remove("invulnerable"), 900);
   if (runStats.retaliateLevel > 0) {
     // Retaliate: getting hit destroys nearby orbs too, turning a hit into a small clear
-    const radius = selectedCharacter.radius * (1.5 + runStats.retaliateLevel * 1.2);
+    const radius = selectedCharacter.radius * RETALIATE_MULT[runStats.retaliateLevel - 1];
     for (let i = orbs.length - 1; i >= 0; i--) {
       const o = orbs[i];
       if (Math.hypot(o.mesh.position.x - playerPos.x, o.mesh.position.y - playerPos.y) < radius + o.radius) {
@@ -277,6 +307,12 @@ function takeDamage() {
       }
     }
     spawnBurst(playerPos.x, playerPos.y, "#ff5566", radius * 2);
+    if (runStats.retaliateLevel >= MAX_EFFECT_LEVEL) {
+      // Lv.5 capstone: a brief moment of safety right after retaliating
+      invulnerableUntil = Math.max(invulnerableUntil, performance.now() + 300);
+      playerEl.classList.add("invulnerable");
+      setTimeout(() => playerEl.classList.remove("invulnerable"), 300);
+    }
   }
   if (hp <= 0) endGame();
 }
@@ -473,9 +509,7 @@ function tryDash() {
 
   // effect upgrades layer on top of whatever the character's core dashEffect does
   if (runStats.dashShockburstLevel > 0) {
-    // was radius*level*0.8 — for level 1 that's smaller than the player's own
-    // hitbox, so it practically never reached anything. Needs a real base size.
-    const bonusRadius = selectedCharacter.radius * (1.5 + runStats.dashShockburstLevel * 1.2);
+    const bonusRadius = selectedCharacter.radius * SHOCKBURST_MULT[runStats.dashShockburstLevel - 1];
     for (let i = orbs.length - 1; i >= 0; i--) {
       const o = orbs[i];
       if (Math.hypot(o.mesh.position.x - playerPos.x, o.mesh.position.y - playerPos.y) < bonusRadius + o.radius) {
@@ -487,18 +521,28 @@ function tryDash() {
   }
 
   if (runStats.dashMagnetLevel > 0) {
-    const pullRadius = 150 + runStats.dashMagnetLevel * 100;
+    const pullRadius = MAGNET_RADIUS[runStats.dashMagnetLevel - 1];
+    const pullStrength = MAGNET_PULL[runStats.dashMagnetLevel - 1];
+    const instaRadius = runStats.dashMagnetLevel >= MAX_EFFECT_LEVEL ? pullRadius / 2 : 0;
     for (const p of powerUps) {
       const d = Math.hypot(p.mesh.position.x - playerPos.x, p.mesh.position.y - playerPos.y);
-      if (d < pullRadius) {
-        p.mesh.position.x += (playerPos.x - p.mesh.position.x) * 0.6;
-        p.mesh.position.y += (playerPos.y - p.mesh.position.y) * 0.6;
+      if (d < instaRadius) {
+        // Lv.5 capstone: power-ups already close in get collected outright
+        p.mesh.position.x = playerPos.x;
+        p.mesh.position.y = playerPos.y;
+      } else if (d < pullRadius) {
+        p.mesh.position.x += (playerPos.x - p.mesh.position.x) * pullStrength;
+        p.mesh.position.y += (playerPos.y - p.mesh.position.y) * pullStrength;
       }
     }
   }
 
   if (runStats.dashChainLevel > 0 && killedCount > 0) {
-    lastDashAt -= runStats.dashCooldownMs * Math.min(0.5, runStats.dashChainLevel * 0.15);
+    lastDashAt -= runStats.dashCooldownMs * CHAIN_REFUND[runStats.dashChainLevel - 1];
+    if (runStats.dashChainLevel >= MAX_EFFECT_LEVEL && Math.random() < 0.25) {
+      // Lv.5 capstone: a chance at a full instant reset on top of the refund
+      lastDashAt = -Infinity;
+    }
   }
 
   const steps = 4;
@@ -588,22 +632,22 @@ function applyUpgrade(id: UpgradeDef["id"]) {
       runStats.speed = Math.round(runStats.speed * 1.1);
       break;
     case "dash_chain":
-      runStats.dashChainLevel += 1;
+      runStats.dashChainLevel = Math.min(runStats.dashChainLevel + 1, MAX_EFFECT_LEVEL);
       break;
     case "dash_magnet":
-      runStats.dashMagnetLevel += 1;
+      runStats.dashMagnetLevel = Math.min(runStats.dashMagnetLevel + 1, MAX_EFFECT_LEVEL);
       break;
     case "dash_shockburst":
-      runStats.dashShockburstLevel += 1;
+      runStats.dashShockburstLevel = Math.min(runStats.dashShockburstLevel + 1, MAX_EFFECT_LEVEL);
       break;
     case "retaliate":
-      runStats.retaliateLevel += 1;
+      runStats.retaliateLevel = Math.min(runStats.retaliateLevel + 1, MAX_EFFECT_LEVEL);
       break;
     case "aura":
-      runStats.auraLevel += 1;
+      runStats.auraLevel = Math.min(runStats.auraLevel + 1, MAX_EFFECT_LEVEL);
       break;
     case "second_wind":
-      runStats.secondWindCharges += 1;
+      runStats.secondWindCharges = Math.min(runStats.secondWindCharges + 1, MAX_EFFECT_LEVEL);
       break;
   }
   acquiredUpgrades.set(id, (acquiredUpgrades.get(id) ?? 0) + 1);
@@ -613,7 +657,7 @@ function applyUpgrade(id: UpgradeDef["id"]) {
 
 function offerUpgrades() {
   paused = true;
-  const pool = [...UPGRADES];
+  const pool = UPGRADES.filter((u) => !u.maxLevel || (acquiredUpgrades.get(u.id) ?? 0) < u.maxLevel);
   for (let i = pool.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [pool[i], pool[j]] = [pool[j], pool[i]];
@@ -814,7 +858,7 @@ scene.onBeforeRenderObservable.add(() => {
 
     // Vòng Hào Quang (aura): passive kill radius, always on, no Dash needed
     if (runStats.auraLevel > 0) {
-      const auraRadius = selectedCharacter.radius * (1 + runStats.auraLevel * 0.6);
+      const auraRadius = selectedCharacter.radius * AURA_MULT[runStats.auraLevel - 1];
       if (Math.hypot(px - playerPos.x, py - playerPos.y) < auraRadius + o.radius) {
         destroyOrb(o, i);
         continue;

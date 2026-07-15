@@ -201,6 +201,13 @@ export interface UpgradeDef {
   name: string;
   description: string;
   category: "stat" | "effect";
+  // Effect upgrades only: every one caps at 5 levels, and every level makes
+  // it bigger/faster/stronger (numeric growth) — a couple also unlock a small
+  // extra behavior at level 5 as a capstone. levelDetails is what the Library
+  // detail view and the offer-card level text are both built from, so the
+  // displayed text and the actual behavior can't drift apart.
+  maxLevel?: number;
+  levelDetails?: string[];
 }
 
 export const UPGRADES: UpgradeDef[] = [
@@ -210,10 +217,88 @@ export const UPGRADES: UpgradeDef[] = [
   { id: "dash_distance", name: "Lướt Xa", description: "+20% khoảng cách Dash.", category: "stat" },
   { id: "dash_power", name: "Dash Mạnh Hơn", description: "Tăng 25% hiệu lực Dash (bán kính phá quái hoặc thời gian bất tử, tùy nhân vật).", category: "stat" },
   { id: "move_speed", name: "Nhanh Nhẹn", description: "+10% tốc độ di chuyển.", category: "stat" },
-  { id: "dash_chain", name: "Dash Nối Tiếp", description: "Dash phá được ít nhất 1 quái sẽ được hoàn lại một phần thời gian hồi chiêu.", category: "effect" },
-  { id: "dash_magnet", name: "Từ Trường", description: "Dash hút các điểm sáng (power-up) gần đó lại phía bạn.", category: "effect" },
-  { id: "dash_shockburst", name: "Dư Chấn", description: "Mọi cú Dash đều gây thêm một vụ nổ nhỏ quanh điểm đáp, phá quái xung quanh — kể cả với Vanguard/Phantom.", category: "effect" },
-  { id: "retaliate", name: "Trả Đòn", description: "Khi bạn bị trúng đòn, mọi quái vật gần đó lập tức bị phá hủy theo — biến cú trúng đòn thành một đợt dọn quái.", category: "effect" },
-  { id: "aura", name: "Vòng Hào Quang", description: "Một vùng sát thương thụ động luôn bao quanh bạn, tự động phá hủy quái vật lại gần — không cần Dash.", category: "effect" },
-  { id: "second_wind", name: "Hồi Sinh", description: "Đòn chí mạng đầu tiên sau khi có nâng cấp này sẽ không giết bạn — thay vào đó hồi về 1 máu và cho một khoảng bất tử dài.", category: "effect" },
+  {
+    id: "dash_chain",
+    name: "Dash Nối Tiếp",
+    description: "Dash phá được ít nhất 1 quái sẽ được hoàn lại một phần thời gian hồi chiêu.",
+    category: "effect",
+    maxLevel: 5,
+    levelDetails: [
+      "Lv.1: Hoàn 15% thời gian hồi chiêu.",
+      "Lv.2: Hoàn 28% thời gian hồi chiêu.",
+      "Lv.3: Hoàn 40% thời gian hồi chiêu.",
+      "Lv.4: Hoàn 52% thời gian hồi chiêu.",
+      "Lv.5: Hoàn 65% thời gian hồi chiêu, cộng 25% cơ hội hồi chiêu toàn bộ ngay lập tức.",
+    ],
+  },
+  {
+    id: "dash_magnet",
+    name: "Từ Trường",
+    description: "Dash hút các điểm sáng (power-up) gần đó lại phía bạn.",
+    category: "effect",
+    maxLevel: 5,
+    levelDetails: [
+      "Lv.1: Hút trong bán kính 220px, kéo lại 50% khoảng cách.",
+      "Lv.2: Bán kính 300px, kéo lại 55% khoảng cách.",
+      "Lv.3: Bán kính 380px, kéo lại 60% khoảng cách.",
+      "Lv.4: Bán kính 460px, kéo lại 65% khoảng cách.",
+      "Lv.5: Bán kính 560px, kéo lại 75% — power-up trong nửa bán kính được nhặt ngay lập tức.",
+    ],
+  },
+  {
+    id: "dash_shockburst",
+    name: "Dư Chấn",
+    description: "Mọi cú Dash đều gây thêm một vụ nổ nhỏ quanh điểm đáp, phá quái xung quanh — kể cả với Vanguard/Phantom.",
+    category: "effect",
+    maxLevel: 5,
+    levelDetails: [
+      "Lv.1: Bán kính nổ = 2.2x cơ thể.",
+      "Lv.2: Bán kính nổ = 3.0x cơ thể.",
+      "Lv.3: Bán kính nổ = 3.8x cơ thể.",
+      "Lv.4: Bán kính nổ = 4.8x cơ thể.",
+      "Lv.5: Bán kính nổ = 6.5x cơ thể — bước nhảy lớn nhất trong chuỗi nâng cấp.",
+    ],
+  },
+  {
+    id: "retaliate",
+    name: "Trả Đòn",
+    description: "Khi bạn bị trúng đòn, mọi quái vật gần đó lập tức bị phá hủy theo — biến cú trúng đòn thành một đợt dọn quái.",
+    category: "effect",
+    maxLevel: 5,
+    levelDetails: [
+      "Lv.1: Phá quái trong bán kính 1.8x cơ thể quanh bạn.",
+      "Lv.2: Bán kính 2.6x cơ thể.",
+      "Lv.3: Bán kính 3.4x cơ thể.",
+      "Lv.4: Bán kính 4.2x cơ thể.",
+      "Lv.5: Bán kính 5.2x cơ thể, cộng 0.3s bất tử ngay sau khi trả đòn.",
+    ],
+  },
+  {
+    id: "aura",
+    name: "Vòng Hào Quang",
+    description: "Một vùng sát thương thụ động luôn bao quanh bạn, tự động phá hủy quái vật lại gần — không cần Dash.",
+    category: "effect",
+    maxLevel: 5,
+    levelDetails: [
+      "Lv.1: Bán kính hào quang = 1.6x cơ thể.",
+      "Lv.2: Bán kính = 2.1x cơ thể.",
+      "Lv.3: Bán kính = 2.6x cơ thể.",
+      "Lv.4: Bán kính = 3.2x cơ thể.",
+      "Lv.5: Bán kính = 4.5x cơ thể — bước nhảy lớn nhất trong chuỗi nâng cấp.",
+    ],
+  },
+  {
+    id: "second_wind",
+    name: "Hồi Sinh",
+    description: "Đòn chí mạng sẽ không giết bạn — thay vào đó hồi máu và cho một khoảng bất tử dài. Mỗi lần nhặt thêm 1 lượt dùng.",
+    category: "effect",
+    maxLevel: 5,
+    levelDetails: [
+      "Lv.1: 1 lượt hồi sinh khả dụng.",
+      "Lv.2: 2 lượt hồi sinh khả dụng.",
+      "Lv.3: 3 lượt hồi sinh khả dụng.",
+      "Lv.4: 4 lượt hồi sinh khả dụng.",
+      "Lv.5: 5 lượt hồi sinh khả dụng — tối đa.",
+    ],
+  },
 ];
