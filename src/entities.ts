@@ -1,4 +1,7 @@
 import { Color3 } from "@babylonjs/core/Maths/math.color";
+import vanguardSprite from "./assets/img/vanguard.png";
+import phantomSprite from "./assets/img/phantom.png";
+import titanSprite from "./assets/img/titan.png";
 
 // Design catalog: every game object's visual look and gameplay stats live here,
 // separate from the update/spawn logic in main.ts. Add a new enemy, power-up,
@@ -28,6 +31,7 @@ export interface CharacterDef {
   dashRadiusMultiplier?: number; // shockwave only: kill radius = radius * this
   clipPath: string; // CSS clip-path polygon, drawn pointing right (0 deg = facing +X)
   description: string; // shown on the character-select screen
+  spriteUrl: string; // portrait art for select screen / library, not used in-game (too small to read detail)
 }
 
 export const CHARACTERS: CharacterDef[] = [
@@ -43,6 +47,7 @@ export const CHARACTERS: CharacterDef[] = [
     dashEffect: "pierce",
     clipPath: "polygon(100% 50%, 0% 0%, 28% 50%, 0% 100%)", // arrow/ship — balanced
     description: "Cân bằng. Tốc độ & máu vừa phải. Dash Xuyên Phá: phá hủy mọi quái vật nằm trên đường lướt.",
+    spriteUrl: vanguardSprite,
   },
   {
     id: "phantom",
@@ -56,6 +61,7 @@ export const CHARACTERS: CharacterDef[] = [
     dashEffect: "phase",
     clipPath: "polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)", // slim diamond — fast, fragile
     description: "Nhanh & mỏng manh (chỉ 2 máu), hồi Dash rất ngắn. Dash Ẩn Thân: không phá quái, nhưng bất tử tức thời để né đòn.",
+    spriteUrl: phantomSprite,
   },
   {
     id: "titan",
@@ -70,6 +76,7 @@ export const CHARACTERS: CharacterDef[] = [
     dashRadiusMultiplier: 5.5,
     clipPath: "polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)", // hexagon — tanky, slow
     description: "To xác, chậm, nhiều máu nhất (4 máu). Dash Chấn Động: nổ ra một vùng lớn quanh điểm đáp, phá hủy mọi quái vật trong bán kính đó.",
+    spriteUrl: titanSprite,
   },
 ];
 

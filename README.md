@@ -66,9 +66,19 @@ A `.claude/hooks/build-doctor-check.sh` Stop hook (adapted from `~/.claude/templ
 
 | Asset | Source | Notes |
 |---|---|---|
-| Player, shield ring, dash trail, hit-burst effects | Procedural CSS (`clip-path` + `translate`/`rotate` custom properties) | Flat 2D by construction — no 3D mesh, no generated images |
+| Player, shield ring, dash trail, hit-burst effects | Procedural CSS (`clip-path` + `translate`/`rotate` custom properties) | In-game player rendering stays flat 2D by construction — no 3D mesh |
 | Dark orbs (5 types), power-ups | Procedural Babylon (`MeshBuilder.CreateSphere` + emissive materials + GlowLayer) | Already read as flat circles head-on through the ortho camera |
 | Sound effects | Procedural Web Audio (`src/audio.ts`, `OscillatorNode` + `GainNode` envelopes) | No audio files |
+
+Generated (Gemini image gen + local `rembg` background removal, `/asset-gen`):
+
+| Name | Description | Size | Path | Cost |
+|------|-------------|------|------|------|
+| vanguard | cyan arrow-ship character portrait | 110x110 px (select screen + portrait) | src/assets/img/vanguard.png | 7¢ |
+| phantom | purple diamond character portrait | 110x110 px (select screen + portrait) | src/assets/img/phantom.png | 7¢ |
+| titan | gold hexagon robot character portrait | 110x110 px (select screen + portrait) | src/assets/img/titan.png | 7¢ |
+
+Portraits are shown on the character-select screen and the `#characterPortrait` preview only — in-game rendering keeps the small CSS `clip-path` shape (at 22-36px on-screen diameter, a downscaled 1024px sprite reads as a muddy blob, per the asset-gen skill's own sizing guidance).
 
 ## Known gotchas (for future edits)
 

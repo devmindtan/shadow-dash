@@ -17,6 +17,7 @@ export const startHintEl = document.getElementById("startHint")!;
 export const finalScoreEl = document.getElementById("finalScore")!;
 export const waveBannerEl = document.getElementById("waveBanner")!;
 export const characterSelectEl = document.getElementById("characterSelect")!;
+export const characterPortraitEl = document.getElementById("characterPortrait")!;
 export const characterInfoEl = document.getElementById("characterInfo")!;
 export const upgradePickEl = document.getElementById("upgradePick")!;
 export const upgradeCardsEl = document.getElementById("upgradeCards")!;
@@ -78,6 +79,8 @@ export function applyCharacterVisual(char: CharacterDef) {
   shieldRingEl.style.width = `${ringSize}px`;
   shieldRingEl.style.height = `${ringSize}px`;
   characterInfoEl.textContent = char.description;
+  characterPortraitEl.style.setProperty("--char-sprite", `url(${char.spriteUrl})`);
+  characterPortraitEl.style.setProperty("--char-color", char.color);
 }
 
 // --- HUD -----------------------------------------------------------------------
@@ -139,7 +142,8 @@ export function initCharacterSelect(onSelect: (char: CharacterDef) => void): Cha
     btn.type = "button";
     btn.className = "character-btn";
     btn.style.setProperty("--btn-color", char.color);
-    btn.innerHTML = `<span class="swatch" style="clip-path: ${char.clipPath}"></span><span>${char.name}</span>`;
+    btn.style.setProperty("--btn-sprite", `url(${char.spriteUrl})`);
+    btn.innerHTML = `<span class="swatch"></span><span>${char.name}</span>`;
     btn.addEventListener("pointerdown", (e) => {
       e.stopPropagation();
       applyCharacterVisual(char);
