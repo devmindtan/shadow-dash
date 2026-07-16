@@ -57,11 +57,17 @@ export function clampToBounds(x: number, y: number, margin: number) {
 }
 
 // --- player / shield ring rendering (CSS elements, not Babylon meshes) -------
-export function renderPlayerEl(radius: number, playerPos: { x: number; y: number }, facing: { x: number; y: number }) {
+export function renderPlayerEl(
+  radius: number,
+  playerPos: { x: number; y: number },
+  facing: { x: number; y: number },
+  isMoving: boolean
+) {
   const { sx, sy } = worldToScreen(playerPos.x, playerPos.y);
   playerEl.style.setProperty("translate", `${sx - radius}px ${sy - radius}px`);
   const angleDeg = (Math.atan2(-facing.y, facing.x) * 180) / Math.PI;
   playerEl.style.setProperty("rotate", `${angleDeg}deg`);
+  playerEl.classList.toggle("moving", isMoving);
 }
 
 export function updateShieldRingPosition(characterRadius: number, playerPos: { x: number; y: number }) {
@@ -71,6 +77,7 @@ export function updateShieldRingPosition(characterRadius: number, playerPos: { x
 }
 
 export function applyCharacterVisual(char: CharacterDef) {
+  playerEl.dataset.character = char.id;
   playerEl.style.setProperty("--char-color", char.color);
   playerEl.style.width = `${char.radius * 2}px`;
   playerEl.style.height = `${char.radius * 2}px`;

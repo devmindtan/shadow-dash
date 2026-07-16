@@ -54,6 +54,64 @@ body {
   }
 }
 
+/* idle/movement feel per character — animates the `scale` individual transform
+   property only, which composes independently of the `translate`/`rotate`
+   properties main.ts drives every frame, so nothing fights the JS-driven
+   positioning. Shapes are drawn pointing along local +X (see clipPath comment
+   in entities.ts), so scaling x up/y down here reads as a stretch along
+   whatever direction `rotate` currently points. */
+#player {
+  animation: idleVanguard 2.6s ease-in-out infinite;
+}
+#player[data-character="phantom"] {
+  animation: idlePhantom 1.5s ease-in-out infinite;
+}
+#player[data-character="titan"] {
+  animation: idleTitan 3.4s ease-in-out infinite;
+}
+
+#player.moving {
+  animation: moveVanguard 0.5s ease-in-out infinite;
+}
+#player.moving[data-character="phantom"] {
+  animation: movePhantom 0.32s ease-in-out infinite;
+}
+#player.moving[data-character="titan"] {
+  animation: moveTitan 0.75s ease-in-out infinite;
+}
+
+/* Vanguard — steady hover breathing; a quick forward-stretch while dashing/moving, like a ship under thrust */
+@keyframes idleVanguard {
+  0%, 100% { scale: 1 1; }
+  50% { scale: 1.05 0.95; }
+}
+@keyframes moveVanguard {
+  0%, 100% { scale: 1.14 0.9; }
+  50% { scale: 1.05 0.97; }
+}
+
+/* Phantom — flickery, desynced breathing at rest; a fast jittery stretch/flicker while moving, ghost-like */
+@keyframes idlePhantom {
+  0%, 100% { scale: 1 1; opacity: 1; }
+  40% { scale: 0.92 1.08; }
+  50% { opacity: 0.8; }
+  60% { scale: 1.05 0.96; }
+}
+@keyframes movePhantom {
+  0%, 100% { scale: 1.22 0.85; opacity: 0.82; }
+  50% { scale: 0.94 1.1; opacity: 1; }
+}
+
+/* Titan — slow heavy breathing at rest; a stomping squash-and-stretch while moving, like a tank rolling forward */
+@keyframes idleTitan {
+  0%, 100% { scale: 1 1; }
+  50% { scale: 1.03 0.97; }
+}
+@keyframes moveTitan {
+  0%, 100% { scale: 1.1 0.92; }
+  50% { scale: 0.95 1.06; }
+}
+
 .dash-ghost {
   position: fixed;
   top: 0;

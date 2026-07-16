@@ -116,7 +116,7 @@ initLibrary();
 
 let playerPos = { x: 0, y: 0 };
 let facing = { x: 0, y: 1 };
-renderPlayerEl(selectedCharacter.radius, playerPos, facing);
+renderPlayerEl(selectedCharacter.radius, playerPos, facing, false);
 
 // --- best score (persisted) --------------------------------------------------
 const BEST_SCORE_KEY = "shadowdash-best-score";
@@ -214,7 +214,7 @@ function tryDash() {
   );
   playerPos.x = clamped.x;
   playerPos.y = clamped.y;
-  renderPlayerEl(selectedCharacter.radius, playerPos, facing);
+  renderPlayerEl(selectedCharacter.radius, playerPos, facing, true);
 
   let killedCount = 0;
 
@@ -487,7 +487,7 @@ scene.onBeforeRenderObservable.add(() => {
   const dt = Math.min(engine.getDeltaTime() / 1000, 1 / 30);
 
   if (state !== "playing") {
-    renderPlayerEl(selectedCharacter.radius, playerPos, facing);
+    renderPlayerEl(selectedCharacter.radius, playerPos, facing, false);
     return;
   }
 
@@ -507,7 +507,8 @@ scene.onBeforeRenderObservable.add(() => {
 
   // keyboard movement — arrow keys or WASD only
   const dir = getMoveDirection();
-  if (dir.x !== 0 || dir.y !== 0) {
+  const isMoving = dir.x !== 0 || dir.y !== 0;
+  if (isMoving) {
     const len = Math.hypot(dir.x, dir.y);
     facing = { x: dir.x / len, y: dir.y / len };
     const clamped = clampToBounds(
@@ -518,7 +519,7 @@ scene.onBeforeRenderObservable.add(() => {
     playerPos.x = clamped.x;
     playerPos.y = clamped.y;
   }
-  renderPlayerEl(selectedCharacter.radius, playerPos, facing);
+  renderPlayerEl(selectedCharacter.radius, playerPos, facing, isMoving);
 
   // dash cooldown badge, with time remaining
   const cooldownLeftMs = runStats.dashCooldownMs - (performance.now() - lastDashAt);
