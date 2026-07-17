@@ -57,32 +57,51 @@ export function clampToBounds(x: number, y: number, margin: number) {
 }
 
 // --- player / shield ring rendering (CSS elements, not Babylon meshes) -------
+// The in-game sprite is rendered well above the hit radius — a character
+// sprite downscaled to the actual ~22-36px hitbox reads as a muddy blob, so
+// visual size and collision size are deliberately decoupled (collision still
+// uses the raw hit radius everywhere in main.ts; only this file's on-screen
+// sizing uses the scaled-up version).
+const SPRITE_VISUAL_SCALE = 3.2;
+function visualRadius(hitRadius: number) {
+  return hitRadius * SPRITE_VISUAL_SCALE;
+}
+
 export function renderPlayerEl(
-  radius: number,
+  char: CharacterDef,
   playerPos: { x: number; y: number },
   facing: { x: number; y: number },
   isMoving: boolean
 ) {
+  const r = visualRadius(char.radius);
   const { sx, sy } = worldToScreen(playerPos.x, playerPos.y);
-  playerEl.style.setProperty("translate", `${sx - radius}px ${sy - radius}px`);
-  const angleDeg = (Math.atan2(-facing.y, facing.x) * 180) / Math.PI;
-  playerEl.style.setProperty("rotate", `${angleDeg}deg`);
+  playerEl.style.setProperty("translate", `${sx - r}px ${sy - r}px`);
+  if (char.directionalSprite) {
+    const angleDeg = (Math.atan2(-facing.y, facing.x) * 180) / Math.PI;
+    playerEl.style.setProperty("rotate", `${angleDeg}deg`);
+  } else {
+    // front-facing art (e.g. a humanoid) — stay upright, mirror left/right instead of rotating
+    playerEl.style.setProperty("rotate", "0deg");
+    if (facing.x !== 0) playerEl.classList.toggle("facing-left", facing.x < 0);
+  }
   playerEl.classList.toggle("moving", isMoving);
 }
 
 export function updateShieldRingPosition(characterRadius: number, playerPos: { x: number; y: number }) {
-  const r = characterRadius * SHIELD_RING.radiusMultiplier;
+  const r = visualRadius(characterRadius) * SHIELD_RING.radiusMultiplier;
   const { sx, sy } = worldToScreen(playerPos.x, playerPos.y);
   shieldRingEl.style.setProperty("translate", `${sx - r}px ${sy - r}px`);
 }
 
 export function applyCharacterVisual(char: CharacterDef) {
   playerEl.dataset.character = char.id;
+  playerEl.classList.remove("facing-left");
   playerEl.style.setProperty("--char-color", char.color);
-  playerEl.style.width = `${char.radius * 2}px`;
-  playerEl.style.height = `${char.radius * 2}px`;
-  playerEl.style.clipPath = char.clipPath;
-  const ringSize = char.radius * 2 * SHIELD_RING.radiusMultiplier;
+  playerEl.style.setProperty("--char-sprite", `url(${char.spriteUrl})`);
+  const size = visualRadius(char.radius) * 2;
+  playerEl.style.width = `${size}px`;
+  playerEl.style.height = `${size}px`;
+  const ringSize = size * SHIELD_RING.radiusMultiplier;
   shieldRingEl.style.width = `${ringSize}px`;
   shieldRingEl.style.height = `${ringSize}px`;
   characterInfoEl.textContent = char.description;
@@ -129,14 +148,17 @@ export function spawnBurst(x: number, y: number, cssColor: string, sizePx: numbe
 export function spawnDashGhost(x: number, y: number, char: CharacterDef) {
   const ghost = document.createElement("div");
   ghost.className = "dash-ghost";
-  const r = char.radius;
+  const r = visualRadius(char.radius);
   ghost.style.width = `${r * 2}px`;
   ghost.style.height = `${r * 2}px`;
-  ghost.style.background = char.color;
-  ghost.style.clipPath = char.clipPath;
+  ghost.style.backgroundImage = `url(${char.spriteUrl})`;
+  ghost.style.filter = `drop-shadow(0 0 6px ${char.color})`;
   const { sx, sy } = worldToScreen(x, y);
   ghost.style.setProperty("translate", `${sx - r}px ${sy - r}px`);
   ghost.style.setProperty("rotate", playerEl.style.getPropertyValue("rotate"));
+  if (!char.directionalSprite && playerEl.classList.contains("facing-left")) {
+    ghost.style.setProperty("scale", "-1 1");
+  }
   document.body.appendChild(ghost);
   setTimeout(() => ghost.remove(), 260);
 }

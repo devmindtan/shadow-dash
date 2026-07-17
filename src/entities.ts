@@ -29,9 +29,11 @@ export interface CharacterDef {
   dashCooldownMs: number;
   dashEffect: DashEffect;
   dashRadiusMultiplier?: number; // shockwave only: kill radius = radius * this
-  clipPath: string; // CSS clip-path polygon, drawn pointing right (0 deg = facing +X)
   description: string; // shown on the character-select screen
-  spriteUrl: string; // portrait art for select screen / library, not used in-game (too small to read detail)
+  spriteUrl: string; // character art — rendered in-game (scaled well above hit radius for readability) and on the select screen
+  directionalSprite: boolean; // true: art was generated facing right, rotate to face travel like the old clip-path shapes did.
+  // false: art is a front-facing portrait (e.g. a humanoid) — rotating it to face travel looks broken (sideways/upside-down),
+  // so it stays upright and only mirrors horizontally for left vs right instead.
 }
 
 export const CHARACTERS: CharacterDef[] = [
@@ -45,9 +47,9 @@ export const CHARACTERS: CharacterDef[] = [
     dashDistance: 150,
     dashCooldownMs: 1400,
     dashEffect: "pierce",
-    clipPath: "polygon(100% 50%, 0% 0%, 28% 50%, 0% 100%)", // arrow/ship — balanced
     description: "Cân bằng. Tốc độ & máu vừa phải. Dash Xuyên Phá: phá hủy mọi quái vật nằm trên đường lướt.",
     spriteUrl: vanguardSprite,
+    directionalSprite: true,
   },
   {
     id: "phantom",
@@ -59,9 +61,9 @@ export const CHARACTERS: CharacterDef[] = [
     dashDistance: 190,
     dashCooldownMs: 1000,
     dashEffect: "phase",
-    clipPath: "polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)", // slim diamond — fast, fragile
     description: "Nhanh & mỏng manh (chỉ 2 máu), hồi Dash rất ngắn. Dash Ẩn Thân: không phá quái, nhưng bất tử tức thời để né đòn.",
     spriteUrl: phantomSprite,
+    directionalSprite: true,
   },
   {
     id: "titan",
@@ -74,16 +76,16 @@ export const CHARACTERS: CharacterDef[] = [
     dashCooldownMs: 1900,
     dashEffect: "shockwave",
     dashRadiusMultiplier: 5.5,
-    clipPath: "polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)", // hexagon — tanky, slow
     description: "To xác, chậm, nhiều máu nhất (4 máu). Dash Chấn Động: nổ ra một vùng lớn quanh điểm đáp, phá hủy mọi quái vật trong bán kính đó.",
     spriteUrl: titanSprite,
+    directionalSprite: false,
   },
 ];
 
 export const SHIELD_RING = {
   color: "#4fd8ff",
   thickness: 3, // px
-  radiusMultiplier: 1.6, // relative to the active character's radius
+  radiusMultiplier: 1.15, // relative to the character's on-screen sprite size (see SPRITE_VISUAL_SCALE in ui.ts), not the hit radius
 };
 
 export const DARK_ORB = {

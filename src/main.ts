@@ -116,7 +116,7 @@ initLibrary();
 
 let playerPos = { x: 0, y: 0 };
 let facing = { x: 0, y: 1 };
-renderPlayerEl(selectedCharacter.radius, playerPos, facing, false);
+renderPlayerEl(selectedCharacter, playerPos, facing, false);
 
 // --- best score (persisted) --------------------------------------------------
 const BEST_SCORE_KEY = "shadowdash-best-score";
@@ -214,7 +214,7 @@ function tryDash() {
   );
   playerPos.x = clamped.x;
   playerPos.y = clamped.y;
-  renderPlayerEl(selectedCharacter.radius, playerPos, facing, true);
+  renderPlayerEl(selectedCharacter, playerPos, facing, true);
 
   let killedCount = 0;
 
@@ -487,7 +487,7 @@ scene.onBeforeRenderObservable.add(() => {
   const dt = Math.min(engine.getDeltaTime() / 1000, 1 / 30);
 
   if (state !== "playing") {
-    renderPlayerEl(selectedCharacter.radius, playerPos, facing, false);
+    renderPlayerEl(selectedCharacter, playerPos, facing, false);
     return;
   }
 
@@ -519,7 +519,7 @@ scene.onBeforeRenderObservable.add(() => {
     playerPos.x = clamped.x;
     playerPos.y = clamped.y;
   }
-  renderPlayerEl(selectedCharacter.radius, playerPos, facing, isMoving);
+  renderPlayerEl(selectedCharacter, playerPos, facing, isMoving);
 
   // dash cooldown badge, with time remaining
   const cooldownLeftMs = runStats.dashCooldownMs - (performance.now() - lastDashAt);

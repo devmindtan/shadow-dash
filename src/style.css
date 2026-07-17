@@ -34,7 +34,10 @@ body {
   top: 0;
   left: 0;
   z-index: 5;
-  background: var(--char-color, #6cf0ff);
+  background-image: var(--char-sprite);
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
   filter: drop-shadow(0 0 10px var(--char-color, #6cf0ff)) drop-shadow(0 0 20px var(--char-color, #6cf0ff));
   transition: rotate 90ms linear;
   pointer-events: none;
@@ -57,9 +60,10 @@ body {
 /* idle/movement feel per character — animates the `scale` individual transform
    property only, which composes independently of the `translate`/`rotate`
    properties main.ts drives every frame, so nothing fights the JS-driven
-   positioning. Shapes are drawn pointing along local +X (see clipPath comment
-   in entities.ts), so scaling x up/y down here reads as a stretch along
-   whatever direction `rotate` currently points. */
+   positioning. Vanguard/Phantom sprites were generated facing right and
+   rotate to face travel (see CharacterDef.directionalSprite in entities.ts);
+   Titan is a front-facing portrait that stays upright and gets a `.facing-left`
+   class instead, so its stretch/breathing keyframes come in mirrored (-x) pairs. */
 #player {
   animation: idleVanguard 2.6s ease-in-out infinite;
 }
@@ -68,6 +72,9 @@ body {
 }
 #player[data-character="titan"] {
   animation: idleTitan 3.4s ease-in-out infinite;
+}
+#player[data-character="titan"].facing-left {
+  animation: idleTitanFlip 3.4s ease-in-out infinite;
 }
 
 #player.moving {
@@ -78,6 +85,9 @@ body {
 }
 #player.moving[data-character="titan"] {
   animation: moveTitan 0.75s ease-in-out infinite;
+}
+#player.moving[data-character="titan"].facing-left {
+  animation: moveTitanFlip 0.75s ease-in-out infinite;
 }
 
 /* Vanguard — steady hover breathing; a quick forward-stretch while dashing/moving, like a ship under thrust */
@@ -102,14 +112,23 @@ body {
   50% { scale: 0.94 1.1; opacity: 1; }
 }
 
-/* Titan — slow heavy breathing at rest; a stomping squash-and-stretch while moving, like a tank rolling forward */
+/* Titan — slow heavy breathing at rest; a stomping squash-and-stretch while moving, like a tank rolling forward.
+   Flip variants are the same curves with x negated, for facing left (Titan never rotates, see comment above). */
 @keyframes idleTitan {
   0%, 100% { scale: 1 1; }
   50% { scale: 1.03 0.97; }
 }
+@keyframes idleTitanFlip {
+  0%, 100% { scale: -1 1; }
+  50% { scale: -1.03 0.97; }
+}
 @keyframes moveTitan {
   0%, 100% { scale: 1.1 0.92; }
   50% { scale: 0.95 1.06; }
+}
+@keyframes moveTitanFlip {
+  0%, 100% { scale: -1.1 0.92; }
+  50% { scale: -0.95 1.06; }
 }
 
 .dash-ghost {
@@ -119,6 +138,9 @@ body {
   z-index: 4;
   pointer-events: none;
   opacity: 0.5;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
   animation: dashGhostFade 260ms ease-out forwards;
 }
 
